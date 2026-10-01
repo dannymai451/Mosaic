@@ -1,0 +1,35 @@
+# Local environment values; commit only templates.
+.env
+.env.*
+!.env.example
+!.env.*.example
+
+# JavaScript dependencies and generated output.
+node_modules/
+.next/
+out/
+coverage/
+*.tsbuildinfo
+next-env.d.ts
+.vercel/
+
+# Python environments, caches, and build output.
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.coverage
+.coverage.*
+htmlcov/
+*.egg-info/
+build/
+dist/
+
+# Local system files and logs.
+.DS_Store
+Thumbs.db
+*.log
+*.pem
