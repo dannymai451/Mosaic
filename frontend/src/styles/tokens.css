@@ -1,0 +1,17 @@
+@theme {
+  --color-background: green;
+  --color-surface: #ffffff;
+  --color-text-primary: #111111;
+  --color-text-secondary: #6b7280;
+  --color-border: #e5e7eb;
+
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 20px;
+
+  --space-xs: 4px;
+  --space-sm: 8px;
+  --space-md: 16px;
+  --space-lg: 24px;
+  --space-xl: 32px;
+}
