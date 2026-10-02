@@ -15,6 +15,43 @@ Showcase your taste through Mosaic!
 
 - Node.js 20.9 or newer and npm.
 - Python 3.14 or newer and [uv](https://docs.astral.sh/uv/getting-started/installation/).
+- [Docker Desktop](https://docs.docker.com/desktop/) or Docker Engine with Compose.
+
+## Start the local database
+
+From the repository root, create your local environment file if you haven't already:
+
+```bash
+cp -n .env.example .env
+```
+
+Docker Compose reads `.env` to configure PostgreSQL. The checked-in example uses
+development-only credentials. Keep your actual `.env` file private.
+
+Start the database in the background:
+
+```bash
+docker compose up -d db
+```
+
+Check whether it is ready:
+
+```bash
+docker compose ps
+docker compose exec db pg_isready -U album_mosaic -d album_mosaic
+```
+
+The database listens on port `5432` by default. Its data is kept in the named
+`postgres_data` volume when the container is stopped or recreated. To stop the
+database while keeping its data, run:
+
+```bash
+docker compose stop db
+```
+
+Start it again with `docker compose up -d db`. To remove the container and
+network, run `docker compose down`; the named database volume remains. Removing
+the volume with `docker compose down -v` permanently deletes the local database.
 
 ## Run locally
 
@@ -69,16 +106,14 @@ uv run ruff check .
 
 ## Environment variables
 
-Both apps currently run without environment variables. The examples reserve
-settings for future backend and database integration; they do not connect a
-database or configure API requests by themselves.
-
-When configuration is needed, copy the appropriate example from the repository root:
+Compose reads the root `.env` file to configure the local PostgreSQL container.
+Copy the checked-in example to create it. For future app configuration, copy the
+appropriate example:
 
 ```bash
-cp .env.example .env
-cp frontend/.env.example frontend/.env.local
-cp backend/.env.example backend/.env
+cp -n .env.example .env
+cp -n frontend/.env.example frontend/.env.local
+cp -n backend/.env.example backend/.env
 ```
 
 Next.js loads `frontend/.env.local` automatically. Values prefixed with
@@ -90,8 +125,8 @@ cd backend
 uv run --env-file .env fastapi dev
 ```
 
-The root PostgreSQL values are development examples for future infrastructure.
-There is no database service configured yet.
+The frontend and backend examples reserve settings for future app integration.
+The apps do not currently read those values or connect to the database.
 
 ## Commit hooks
 
