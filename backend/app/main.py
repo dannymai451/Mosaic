@@ -2,8 +2,9 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.routes.auth import (
-    router as spotify_auth_router,
+    auth_router,
     me_router,
+    spotify_router,
 )
 
 
@@ -24,7 +25,8 @@ app.add_middleware(
 )
 
 
-app.include_router(spotify_auth_router)
+app.include_router(spotify_router)
+app.include_router(auth_router)
 app.include_router(me_router)
 
 
