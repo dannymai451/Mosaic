@@ -42,11 +42,16 @@ export default function DashboardPage() {
     }
   }
 
+  function retryLoad() {
+    window.location.reload();
+  }
+
   useEffect(() => {
     async function loadUser() {
       try {
         const response = await fetch(`${API_BASE_URL}/api/me`, {
           credentials: "include",
+          signal: AbortSignal.timeout(10000),
         });
 
         if (response.status === 401) {
@@ -62,7 +67,11 @@ export default function DashboardPage() {
         setUser(data);
       } catch (err) {
         console.error(err);
-        setError("Could not load your connected Spotify profile.");
+        setError(
+          err instanceof DOMException && err.name === "TimeoutError"
+            ? "The API took too long to respond. Check that the backend is running, then try again."
+            : "Could not reach the API. Check that the backend is running, then try again."
+        );
       } finally {
         setLoading(false);
       }
@@ -84,6 +93,13 @@ export default function DashboardPage() {
       <main className="flex min-h-screen items-center justify-center bg-zinc-950 text-white">
         <div className="text-center">
           <p className="mb-6 text-zinc-300">{error}</p>
+
+          <button
+            onClick={retryLoad}
+            className="mr-3 rounded-full border border-zinc-700 px-6 py-3 font-semibold text-white"
+          >
+            Try again
+          </button>
 
           <a
             href={`${API_BASE_URL}/api/auth/spotify/start`}
