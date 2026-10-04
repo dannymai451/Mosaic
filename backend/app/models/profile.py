@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 from uuid import UUID, uuid4
 
-from sqlalchemy import CheckConstraint, ForeignKey, String, Text, text
+from sqlalchemy import CheckConstraint, ForeignKey, String, Text, UniqueConstraint, text
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.ext.mutable import MutableDict
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -17,6 +17,7 @@ if TYPE_CHECKING:
 class Profile(Base):
     __tablename__ = "profiles"
     __table_args__ = (
+        UniqueConstraint("username", name="uq_profiles_username"),
         CheckConstraint(
             "visibility IN ('public', 'private')", name="ck_profiles_visibility"
         ),
@@ -26,7 +27,7 @@ class Profile(Base):
     user_id: Mapped[UUID] = mapped_column(
         ForeignKey("users.id", ondelete="CASCADE"), unique=True
     )
-    username: Mapped[str] = mapped_column(String(255), unique=True)
+    username: Mapped[str] = mapped_column(String(255))
     display_name: Mapped[str] = mapped_column(String(255))
     bio: Mapped[str] = mapped_column(Text, default="", server_default="")
     visibility: Mapped[str] = mapped_column(

@@ -121,6 +121,49 @@ upgrade SQL without connecting, run `uv run alembic upgrade head --sql`.
 To roll back the most recent migration, run `uv run alembic downgrade -1`;
 rolling back the initial migration drops all four tables and their data.
 
+## Phase 2 persistence and local fixture
+
+The database enforces unique `users.spotify_account_id` and `profiles.username`
+values with named constraints. Usernames use PostgreSQL's case-sensitive string
+comparison. The new migration names the constraints already created by the
+initial migration; it preserves existing data.
+
+Repository functions in `backend/app/repositories/` accept an `AsyncSession`.
+They flush writes without committing. Callers wrap related changes in
+`async with db.begin()` so failures roll back the entire operation.
+`create_user_with_profile` in `app.services.accounts` owns that transaction and
+requires a fresh session with no active transaction. Session repositories store
+SHA-256 token digests and reject expired sessions; Spotify connection repositories
+accept already-encrypted refresh tokens.
+
+After migrating, seed the local development fixture from `backend/`:
+
+```bash
+uv run python -m app.db.seed --local
+```
+
+This creates the private profile `mosaic_local_test` (`Local Test User`) linked to
+Spotify account ID `mosaic-local-test-user`. Repeating the command preserves
+profile edits and creates no duplicate rows. It targets your configured
+`DATABASE_URL`; use your local development database. It does not create a Spotify
+connection or a login session. OAuth routes still use the Phase 1 in-memory session
+store; connecting those routes to persistence is a separate step.
+
+Validate the migration and run the tests from `backend/`:
+
+```bash
+uv run alembic upgrade head
+uv run alembic check
+TEST_DATABASE_URL=postgresql+asyncpg://album_mosaic:album_mosaic_dev@localhost:5432/album_mosaic uv run pytest
+```
+
+Adjust the test URL to match your local credentials and port. The integration
+tests create and drop a randomly named schema in that database; the database role
+needs permission to create schemas. Without `TEST_DATABASE_URL`, the four
+PostgreSQL integration tests are skipped. They verify identity uniqueness,
+atomic rollback, profile updates, connection upserts, session hashing/expiry/logout,
+and seed idempotency. The existing health and OAuth tests also run.
+
 ## Shared setup files
 
 - `.editorconfig` gives supporting editors consistent whitespace settings:
