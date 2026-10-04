@@ -93,6 +93,34 @@ uv run pytest
 uv run ruff check .
 ```
 
+## Database migrations
+
+Alembic manages the PostgreSQL schema for `users`, `spotify_connections`,
+`sessions`, and `profiles`. Start the local database, then from `backend/`:
+
+```bash
+cp -n .env.example .env
+uv sync --locked
+uv run alembic upgrade head
+```
+
+Set `DATABASE_URL` in `backend/.env` to a `postgresql+asyncpg://` URL matching
+your database credentials and port. An exported `DATABASE_URL` takes precedence.
+Alembic loads this file automatically and does not require Spotify credentials.
+
+After changing models, generate and review a migration before applying it:
+
+```bash
+uv run alembic revision --autogenerate -m "describe schema change"
+uv run alembic upgrade head
+uv run alembic check
+```
+
+`alembic check` verifies that the database schema matches the models. To preview
+upgrade SQL without connecting, run `uv run alembic upgrade head --sql`.
+To roll back the most recent migration, run `uv run alembic downgrade -1`;
+rolling back the initial migration drops all four tables and their data.
+
 ## Shared setup files
 
 - `.editorconfig` gives supporting editors consistent whitespace settings:
@@ -125,8 +153,9 @@ cd backend
 uv run --env-file .env fastapi dev
 ```
 
-The frontend and backend examples reserve settings for future app integration.
-The apps do not currently read those values or connect to the database.
+The backend reads its settings from environment variables or `backend/.env`.
+Its database engine and Alembic use `DATABASE_URL`; Spotify authentication also
+requires the Spotify and frontend settings in the backend example.
 
 ## Commit hooks
 
