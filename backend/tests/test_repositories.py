@@ -1,7 +1,6 @@
 """PostgreSQL integration tests; each test creates and drops its own schema."""
 
 import asyncio
-import os
 from datetime import UTC, datetime, timedelta
 from uuid import uuid4
 
@@ -18,10 +17,8 @@ from app.services.accounts import create_user_with_profile
 
 
 @pytest.fixture
-def run_db():
-    url = os.environ.get("TEST_DATABASE_URL")
-    if not url:
-        pytest.skip("Set TEST_DATABASE_URL to run PostgreSQL integration tests")
+def run_db(migrated_database_url):
+    url = migrated_database_url
 
     def run(scenario):
         async def execute():

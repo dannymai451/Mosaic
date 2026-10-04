@@ -38,7 +38,7 @@ Check whether it is ready:
 
 ```bash
 docker compose ps
-docker compose exec db pg_isready -U album_mosaic -d album_mosaic
+docker compose exec db pg_isready -U mosaic -d mosaic
 ```
 
 The database listens on port `5432` by default. Its data is kept in the named
@@ -146,23 +146,28 @@ This creates the private profile `mosaic_local_test` (`Local Test User`) linked 
 Spotify account ID `mosaic-local-test-user`. Repeating the command preserves
 profile edits and creates no duplicate rows. It targets your configured
 `DATABASE_URL`; use your local development database. It does not create a Spotify
-connection or a login session. OAuth routes still use the Phase 1 in-memory session
-store; connecting those routes to persistence is a separate step.
+connection or a login session. OAuth callbacks atomically upsert the user and Spotify connection, create a
+profile on first login, and persist a hashed session. Refresh tokens are encrypted
+with `TOKEN_ENCRYPTION_KEY`; `/api/me` and logout use PostgreSQL. Sessions survive
+backend restarts until their one-hour expiry. Repeat login preserves profile edits.
 
 Validate the migration and run the tests from `backend/`:
 
 ```bash
 uv run alembic upgrade head
 uv run alembic check
-TEST_DATABASE_URL=postgresql+asyncpg://album_mosaic:album_mosaic_dev@localhost:5432/album_mosaic uv run pytest
+uv run python scripts/verify_phase2.py
 ```
 
-Adjust the test URL to match your local credentials and port. The integration
-tests create and drop a randomly named schema in that database; the database role
-needs permission to create schemas. Without `TEST_DATABASE_URL`, the four
-PostgreSQL integration tests are skipped. They verify identity uniqueness,
+The verification script starts a disposable PostgreSQL 18 container, creates a
+blank test database, applies Alembic migrations, runs all tests, and cleans up.
+It requires Docker and does not use your development database. Direct `pytest`
+runs require `TEST_DATABASE_URL` with a role allowed to create databases; otherwise
+database-dependent tests are skipped. They verify identity uniqueness,
 atomic rollback, profile updates, connection upserts, session hashing/expiry/logout,
-and seed idempotency. The existing health and OAuth tests also run.
+and seed idempotency. The existing health and OAuth tests also run. See
+[Phase 2 acceptance verification](docs/phase-2-verification.md) for setup and the
+manual browser checklist.
 
 ## Shared setup files
 

@@ -29,6 +29,7 @@ class Profile(Base):
     )
     username: Mapped[str] = mapped_column(String(255))
     display_name: Mapped[str] = mapped_column(String(255))
+    avatar_url: Mapped[str | None] = mapped_column(Text, nullable=True)
     bio: Mapped[str] = mapped_column(Text, default="", server_default="")
     visibility: Mapped[str] = mapped_column(
         String(7), default="private", server_default="private"

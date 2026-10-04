@@ -1,13 +1,18 @@
 import base64
 import secrets
+from typing import Annotated
 from urllib.parse import urlencode
 
 import httpx
-from fastapi import APIRouter, Cookie, Response
+from fastapi import APIRouter, Cookie, Depends, Response
 from fastapi.responses import RedirectResponse
+from sqlalchemy.exc import SQLAlchemyError
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
-
+from app.db.session import get_db
+from app.repositories import profiles, sessions
+from app.services.auth import persist_login
 
 spotify_router = APIRouter(
     prefix="/api/auth/spotify",
@@ -28,17 +33,11 @@ SPOTIFY_ME_URL = "https://api.spotify.com/v1/me"
 
 SCOPES = ["user-read-private"]
 
-# Phase 1 only.
-# Replaced by persistent database-backed sessions in Phase 2.
-sessions: dict[str, dict] = {}
-
 
 def redirect_to_connect(error: str) -> RedirectResponse:
     query = urlencode({"error": error})
 
-    response = RedirectResponse(
-        f"{settings.frontend_url}/connect?{query}"
-    )
+    response = RedirectResponse(f"{settings.frontend_url}/connect?{query}")
 
     # Makes OAuth state effectively one-time use.
     response.delete_cookie("spotify_oauth_state", path="/")
@@ -81,6 +80,7 @@ async def spotify_login():
 
 @spotify_router.get("/callback")
 async def spotify_callback(
+    db: Annotated[AsyncSession, Depends(get_db)],
     code: str | None = None,
     state: str | None = None,
     error: str | None = None,
@@ -100,13 +100,9 @@ async def spotify_callback(
     if not code:
         return redirect_to_connect("missing_code")
 
-    credentials = (
-        f"{settings.spotify_client_id}:{settings.spotify_client_secret}"
-    )
+    credentials = f"{settings.spotify_client_id}:{settings.spotify_client_secret}"
 
-    basic_auth = base64.b64encode(
-        credentials.encode()
-    ).decode()
+    basic_auth = base64.b64encode(credentials.encode()).decode()
 
     async with httpx.AsyncClient(timeout=10.0) as client:
         try:
@@ -159,21 +155,23 @@ async def spotify_callback(
 
         profile = profile_response.json()
 
-    session_id = secrets.token_urlsafe(32)
+    try:
+        session_id = await persist_login(db, profile, token_data)
+    except ValueError as exc:
+        return redirect_to_connect(
+            str(exc)
+            if str(exc)
+            in {
+                "spotify_profile_failed",
+                "token_encryption_not_configured",
+                "missing_refresh_token",
+            }
+            else "login_failed"
+        )
+    except SQLAlchemyError:
+        return redirect_to_connect("login_failed")
 
-    sessions[session_id] = {
-        "spotify_account_id": profile.get("account_id"),
-        "display_name": profile.get("display_name"),
-        "images": profile.get("images", []),
-
-        # Never returned to the browser.
-        "access_token": access_token,
-        "refresh_token": token_data.get("refresh_token"),
-    }
-
-    response = RedirectResponse(
-        f"{settings.frontend_url}/dashboard"
-    )
+    response = RedirectResponse(f"{settings.frontend_url}/dashboard")
 
     response.delete_cookie("spotify_oauth_state", path="/")
 
@@ -192,29 +190,36 @@ async def spotify_callback(
 
 @me_router.get("/api/me")
 async def get_current_user(
+    db: Annotated[AsyncSession, Depends(get_db)],
     mosaic_session: str | None = Cookie(default=None),
 ):
     if not mosaic_session:
         return Response(status_code=401)
 
-    session = sessions.get(mosaic_session)
+    session = await sessions.get_active(db, mosaic_session)
 
     if not session:
         return Response(status_code=401)
 
+    profile = await profiles.get_by_user_id(db, session.user_id)
+    if profile is None:
+        return Response(status_code=401)
+
     # Deliberately minimal browser-facing DTO.
     return {
-        "displayName": session["display_name"],
-        "images": session["images"],
+        "displayName": profile.display_name,
+        "images": [{"url": profile.avatar_url}] if profile.avatar_url else [],
     }
 
 
 @auth_router.post("/logout", status_code=204)
 async def logout(
+    db: Annotated[AsyncSession, Depends(get_db)],
     mosaic_session: str | None = Cookie(default=None),
 ):
     if mosaic_session:
-        sessions.pop(mosaic_session, None)
+        async with db.begin():
+            await sessions.delete_by_token(db, mosaic_session)
 
     response = Response(status_code=204)
 

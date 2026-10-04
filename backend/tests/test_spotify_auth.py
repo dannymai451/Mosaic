@@ -4,7 +4,6 @@ import httpx
 import respx
 from fastapi.testclient import TestClient
 
-
 # Allows tests to run without a developer's real .env credentials.
 os.environ.setdefault("SPOTIFY_CLIENT_ID", "test-client-id")
 os.environ.setdefault("SPOTIFY_CLIENT_SECRET", "test-client-secret")
@@ -18,12 +17,11 @@ os.environ.setdefault(
 )
 
 
-from app.api.routes.auth import (  # noqa: E402
+from app.api.routes.auth import (
     SPOTIFY_ME_URL,
     SPOTIFY_TOKEN_URL,
 )
-from app.main import app  # noqa: E402
-
+from app.main import app
 
 client = TestClient(app)
 
@@ -51,7 +49,8 @@ def test_callback_rejects_invalid_state():
 
 
 @respx.mock
-def test_callback_creates_session_and_returns_profile():
+def test_callback_creates_session_and_returns_profile(database_client):
+    client, _ = database_client
     respx.post(SPOTIFY_TOKEN_URL).mock(
         return_value=httpx.Response(
             200,
@@ -97,10 +96,7 @@ def test_callback_creates_session_and_returns_profile():
     )
 
     assert response.status_code == 307
-    assert (
-        response.headers["location"]
-        == "http://127.0.0.1:3000/dashboard"
-    )
+    assert response.headers["location"] == "http://127.0.0.1:3000/dashboard"
 
     assert client.cookies.get("mosaic_session") is not None
 

@@ -1,10 +1,12 @@
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+
 class Settings(BaseSettings):
     spotify_client_id: str
     spotify_client_secret: str
     spotify_redirect_uri: str
     frontend_url: str
+    token_encryption_key: str | None = None
     database_url: str
 
     model_config = SettingsConfigDict(

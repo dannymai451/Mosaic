@@ -25,3 +25,17 @@ async def create(db: AsyncSession, *, spotify_account_id: str) -> User:
     db.add(user)
     await db.flush()
     return user
+
+
+async def upsert(db: AsyncSession, *, spotify_account_id: str) -> User:
+    from sqlalchemy import func
+    from sqlalchemy.dialects.postgresql import insert
+
+    statement = insert(User).values(spotify_account_id=spotify_account_id)
+    statement = statement.on_conflict_do_update(
+        index_elements=[User.spotify_account_id],
+        set_={"updated_at": func.now()},
+    ).returning(User)
+    return (
+        await db.scalars(statement, execution_options={"populate_existing": True})
+    ).one()
