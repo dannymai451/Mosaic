@@ -79,6 +79,9 @@ def test_repeat_login_restart_expiry_and_logout(database_client, migrated_databa
             ).user_id == user.id
             profile.bio = "Preserve my edits"
             profile.display_name = "Edited name"
+            profile.visibility = "public"
+            profile.theme = {"preset": "plum"}
+            profile.username = "edited_user"
             return user.id, profile.id
 
     user_id, profile_id = asyncio.run(inspect_first())
@@ -120,8 +123,12 @@ def test_repeat_login_restart_expiry_and_logout(database_client, migrated_databa
 
     asyncio.run(inspect_repeat())
     expected = {
+        "username": "edited_user",
         "displayName": "Edited name",
         "images": [{"url": "https://example.com/avatar.jpg"}],
+        "bio": "Preserve my edits",
+        "visibility": "public",
+        "theme": {"preset": "plum"},
     }
     assert client.get("/api/me").json() == expected
     # A new interpreter has no in-memory auth state or shared database engine.

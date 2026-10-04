@@ -207,8 +207,12 @@ async def get_current_user(
 
     # Deliberately minimal browser-facing DTO.
     return {
+        "username": profile.username,
         "displayName": profile.display_name,
         "images": [{"url": profile.avatar_url}] if profile.avatar_url else [],
+        "bio": profile.bio,
+        "visibility": profile.visibility,
+        "theme": profile.theme,
     }
 
 

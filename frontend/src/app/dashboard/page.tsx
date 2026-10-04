@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 
 const API_BASE_URL =
   process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://127.0.0.1:8000";
@@ -167,6 +168,12 @@ export default function DashboardPage() {
             <p className="mt-2 text-sm text-green-400">
               Spotify connected successfully
             </p>
+            <Link
+              href="/settings/profile"
+              className="mt-4 inline-flex min-h-11 items-center rounded-full border border-zinc-600 px-5 text-sm font-semibold hover:border-green-400 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-green-400"
+            >
+              Edit profile
+            </Link>
           </div>
         </div>
       </div>
