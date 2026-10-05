@@ -174,6 +174,12 @@ export default function DashboardPage() {
             >
               Edit profile
             </Link>
+            <Link
+              href="/settings/albums"
+              className="mt-4 ml-3 inline-flex min-h-11 items-center rounded-full border border-zinc-600 px-5 text-sm font-semibold hover:border-green-400 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-green-400"
+            >
+              Choose albums
+            </Link>
           </div>
         </div>
       </div>
