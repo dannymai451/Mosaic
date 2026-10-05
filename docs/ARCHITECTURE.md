@@ -1,0 +1,160 @@
+# Current architecture
+
+## System overview
+
+Mosaic is an early music-profile application. Implemented product behavior is
+Spotify sign-in, persistent owner sessions, an owner dashboard, profile previews,
+and a profile-update API. Album selection, mosaic generation, and public profile
+sharing are not implemented. `services/spotify.py` and `services/mosaic.py` are
+docstring-only placeholders; the project-plan PDF describes intent, not shipped behavior.
+
+- `frontend/`: Next.js 16.3.8 App Router, React 19.2.8, TypeScript with strict
+  checking, Tailwind CSS 4. npm and `package-lock.json` pin the installed graph.
+- `backend/`: Python >=3.14, FastAPI, SQLAlchemy async sessions with asyncpg,
+  Alembic, Pydantic settings/validation, httpx for Spotify HTTP, Fernet encryption.
+  uv and `uv.lock` manage dependencies. Locked versions are the source of truth.
+- `compose.yaml`: PostgreSQL 18 only. Application servers run on the host.
+
+## Directory responsibilities
+
+| Location | Responsibility |
+| --- | --- |
+| `frontend/src/app/` | Route pages, root layout, global CSS; components/types are mostly colocated in pages. |
+| `frontend/src/styles/tokens.css` | Tailwind theme tokens; pages currently also use hardcoded utility colors. |
+| `backend/app/main.py` | FastAPI creation, router registration, CORS, active health endpoint. |
+| `backend/app/api/routes/` | HTTP/authentication orchestration and owner profile updates. |
+| `backend/app/services/` | Multi-write account/login transactions; future integration placeholders. |
+| `backend/app/repositories/` | Async persistence functions accepting a caller-provided session. |
+| `backend/app/models/` | Four SQLAlchemy models; `__init__.py` registers them together. |
+| `backend/app/schemas/` | Pydantic profile PATCH request validation. |
+| `backend/app/db/` | Declarative base, engine/session dependency, local seed and connectivity commands. |
+| `backend/app/core/config.py` | Application environment settings instantiated at import. |
+| `backend/migrations/` | Alembic environment and versioned schema. |
+| `backend/tests/` | pytest HTTP, migration, persistence, and guardrail checks. |
+| `backend/scripts/verify_phase2.py` | Disposable PostgreSQL suite runner. |
+| `scripts/` | Repository verification entry point and small static boundary checker. |
+| `docs/` | Architecture, product map, conventions, persistence acceptance checklist. |
+
+There is no shared frontend API client, generic component library, shared
+cross-language types, or implemented `infrastructure/` directory.
+
+## Dependency direction and boundaries
+
+Browser pages use HTTP endpoints with `credentials: "include"` for owner requests.
+They do not access PostgreSQL or backend Python directly. The landing page is a
+server-rendered page; connect/dashboard/settings are client components.
+
+The observed backend path is:
+
+```text
+main -> API routes -> services and/or repositories -> models -> db.base
+                   -> request schemas
+db.session -> core.config
+migrations -> models + db.base
+```
+
+Routes may call repositories directly: `api/routes/profiles.py` owns its update
+transaction, and `api/routes/auth.py` owns logout. Do not impose a service-only
+route rule. Spotify HTTP exchange currently lives in the auth route.
+
+Models, repositories, and request schemas must not import API or services.
+Repositories leave transaction control to callers so multi-row operations remain
+atomic. The static checker enforces these two rules; its exact scope and limits
+are in [conventions](CONVENTIONS.md#hard-guardrails).
+
+## Patterns to copy
+
+- Transaction ownership: `services/accounts.py::create_user_with_profile` uses
+  `async with db.begin()` on a fresh session. Repository writes flush/execute
+  without committing (`repositories/profiles.py`, `repositories/users.py`).
+- Idempotent identity linking: `services/auth.py::persist_login` calls PostgreSQL
+  upserts, retains profile edits on repeat login, encrypts refresh tokens, and
+  creates a new opaque session token. `repositories/sessions.py` stores/queries
+  only its SHA-256 digest and checks expiry.
+- Owner identity comes from the session cookie, never a request-body user ID.
+  See `api/routes/profiles.py` and `schemas/profile.py`; the schema rejects extra
+  fields and explicit nulls and supports partial updates.
+- Async DB injection: `db/session.py::get_db`, with `Depends(get_db)` in routes.
+  Startup creates an engine but does not apply migrations automatically.
+- Frontend request cancellation/retry: the loading effect in
+  `frontend/src/app/settings/profile/page.tsx` aborts on unmount and times out.
+
+## State management
+
+Frontend state uses React `useState`/`useEffect`, with no global store or query
+library. Settings keeps separate draft and preview states; refresh/navigation
+loses unsaved changes. Connect reads the `error` URL query with Next's
+`useSearchParams` behind a Suspense boundary. Dashboard
+loads `/api/me`, displays errors, and POSTs logout before returning home.
+
+Authentication state resides in PostgreSQL plus the HttpOnly `mosaic_session`
+cookie (one-hour lifetime). OAuth uses a ten-minute state cookie, validates it
+with constant-time comparison, then deletes it. Tokens are not put in browser
+storage or owner DTOs. Local cookies currently have `secure=False`.
+
+## Data access and configuration
+
+Tables are `users` (unique Spotify account ID), `profiles` (one per user, unique
+case-sensitive username), `spotify_connections` (one encrypted refresh token per
+user), and `sessions` (digest, user ID, expiry). Profiles include avatar, bio,
+private/public visibility, and mutable JSONB theme. Foreign keys cascade deletes.
+Alembic is the schema authority; changing a model requires a reviewed migration.
+
+Root `.env` configures Compose. Backend commands run from `backend/` so application
+settings find `.env`; exported variables override it. Application import requires
+database, Spotify, and frontend settings. Migrations independently load only
+`DATABASE_URL` from the backend file. Frontend reads `NEXT_PUBLIC_API_BASE_URL`
+(default `http://127.0.0.1:8000`) and Next.js loads `.env.local`.
+
+Current CORS allows only `http://127.0.0.1:3000` with credentials. Use that host
+consistently for browser/API/callback URLs; `localhost` is a different origin.
+README covers setup and migration commands; examples contain no real credentials.
+
+## Error handling
+
+OAuth redirects to `/connect?error=...` for validation, upstream status/network,
+and selected persistence failures. The connect page maps many codes to friendly
+messages and uses a generic fallback for others. Owner reads return empty 401
+responses for invalid sessions. Profile PATCH raises HTTPException (401/404/409/
+422), with a username preflight plus an IntegrityError retry lookup for races.
+Frontend fetches check HTTP status and show explicit loading/error/retry states.
+There is no common application error middleware or response schema layer.
+
+## Testing architecture
+
+pytest uses FastAPI TestClient and respx mocks for Spotify; tests use test settings
+without requiring real login. `tests/conftest.py` creates a randomly named database,
+applies all migrations, and drops it on teardown when `TEST_DATABASE_URL` exists.
+Repository scenarios additionally use isolated schemas populated from metadata;
+HTTP tests use the migrated database. `test_migrations.py` checks schema/model
+agreement. `test_persistent_auth.py` also verifies a fresh interpreter can read a
+session. See FEATURE_MAP for scenario coverage.
+
+The full verifier creates its own temporary PostgreSQL container on a random
+loopback port and rejects skips. Direct pytest skips DB coverage without the test
+URL. Frontend coverage currently consists of ESLint, TypeScript, production build,
+and manual browser checks; no frontend unit/browser test framework exists.
+There is no checked-in CI or enabled commit hook. Backend has Ruff but no separate
+static type checker. No global formatting gate is installed.
+
+## Known architectural debt
+
+- Profile settings is preview-only; the PATCH API is implemented but not wired
+  to the form. Visibility/theme do not create a public profile route.
+- First login generates `user_<32 hex characters>` (37 characters), whereas PATCH
+  and the preview form accept usernames up to 30. Existing generated names can
+  fail preview validation until edited; do not copy that mismatch into new work.
+- `persist_login` and mocks expect a Spotify `account_id` field. There is no
+  normalization layer or real-response fixture establishing the live identity
+  contract; mocked OAuth passes do not establish live Spotify compatibility.
+- HTTP exchange is inline in `api/routes/auth.py`; the Spotify service placeholder
+  is not a working example. `api/routes/health.py` is also unregistered: the active
+  health endpoint is in `main.py`.
+- Owner JSON responses are duplicated across routes. Request `display_name` becomes
+  response `displayName`; frontend types are manually duplicated and partial.
+- CORS is hardcoded to a local origin and cookies are not production-secure. Keep
+  deployment work explicit rather than assuming environment URLs configure CORS.
+- Global tokens and page utility colors diverge. Dashboard uses a raw image tag;
+  settings uses an unoptimized Next Image. Follow task scope before unifying them.
+- Older phase acceptance records describe past runs. Current verification and
+  feature behavior are documented here and in FEATURE_MAP.

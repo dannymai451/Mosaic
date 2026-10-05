@@ -7,9 +7,13 @@ Showcase your taste through Mosaic!
 | Folder | Purpose |
 | --- | --- |
 | `frontend/` | Next.js App Router app with TypeScript and Tailwind CSS. |
-| `backend/` | FastAPI app with a health endpoint and pytest tests. |
-| `infrastructure/` | Reserved for deployment and service configuration. |
-| `docs/` | Reserved for project documentation. |
+| `backend/` | FastAPI API, PostgreSQL persistence, migrations, and pytest tests. |
+| `scripts/` | Repository verification and static architecture checks. |
+| `docs/` | Architecture, feature map, conventions, and acceptance instructions. |
+
+AI coding agents start with [AGENTS.md](AGENTS.md). See
+[current architecture](docs/ARCHITECTURE.md), [feature map](docs/FEATURE_MAP.md),
+and [conventions](docs/CONVENTIONS.md) for durable project context.
 
 ## Requirements
 
@@ -63,7 +67,8 @@ npm ci
 npm run dev
 ```
 
-Open http://localhost:3000.
+Open http://127.0.0.1:3000. Use `127.0.0.1` consistently for the frontend,
+API, and Spotify callback: current CORS allows that frontend origin only.
 
 In a second terminal, from the repository root:
 
@@ -73,10 +78,25 @@ uv sync --locked
 uv run fastapi dev
 ```
 
-The API runs at http://localhost:8000. Interactive API documentation is at
-http://localhost:8000/docs, and the health endpoint is `/api/health`.
+The API runs at http://127.0.0.1:8000. Interactive API documentation is at
+http://127.0.0.1:8000/docs, and the health endpoint is `/api/health`.
+Copy `backend/.env.example` to `backend/.env` and configure its settings first;
+the API loads them at import. Apply migrations before using authenticated routes.
 
 ## Run checks
+
+After installing both dependency sets, from the repository root with Docker running:
+
+```bash
+uv run --project backend --locked python scripts/verify.py
+```
+
+This is the standard completion check: architecture guardrails, backend Ruff,
+frontend lint/type checking/build, and the entire backend suite with disposable
+PostgreSQL 18. It stops on failures and rejects skipped backend tests. It does not
+use your development database. See [verification details](docs/CONVENTIONS.md#verification).
+
+For targeted checks while developing:
 
 From `frontend/`:
 
@@ -183,7 +203,7 @@ manual browser checklist.
 ## Environment variables
 
 Compose reads the root `.env` file to configure the local PostgreSQL container.
-Copy the checked-in example to create it. For future app configuration, copy the
+Copy the checked-in example to create it. For application configuration, copy the
 appropriate example:
 
 ```bash

@@ -1,3 +1,9 @@
+# Frontend work
+
+Follow the [root operating manual](../AGENTS.md). Route behavior is mapped in
+[FEATURE_MAP](../docs/FEATURE_MAP.md); repository architecture and verification
+are linked there. The installed Next.js guides below are relative to `frontend/`.
+
 <!-- BEGIN:nextjs-agent-rules -->
 
 # This is NOT the Next.js you know

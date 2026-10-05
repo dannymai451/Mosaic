@@ -12,7 +12,10 @@ uv sync --locked
 uv run python scripts/verify_phase2.py
 ```
 
-Expected: **10 passed, no skips**, exit code zero. The script uses a temporary PostgreSQL 18 container on a random loopback port, creates a random database, migrates it from blank, and removes both afterward. It leaves the development database untouched. Spotify HTTP calls are mocked; no Spotify account or real credentials are needed.
+Expected: **all tests pass, no skips**, exit code zero (the suite has grown since Phase 2).
+For the standard whole-repository check, run
+`uv run --project backend --locked python scripts/verify.py` from the root.
+The database script uses a temporary PostgreSQL 18 container on a random loopback port, creates a random database, migrates it from blank, and removes both afterward. It leaves the development database untouched. Spotify HTTP calls are mocked; no Spotify account or real credentials are needed.
 
 | Requirement | Automated evidence |
 | --- | --- |
@@ -69,7 +72,7 @@ npm run dev
 
 Use the configured frontend origin consistently (normally `http://127.0.0.1:3000`) and the Spotify developer app's registered redirect URI. Use an allowlisted Spotify account.
 
-1. Open `/connect`, connect Spotify, and confirm `/dashboard` displays your name and avatar. In browser Network tools, `/api/me` returns 200 with only `displayName` and `images`.
+1. Open `/connect`, connect Spotify, and confirm `/dashboard` displays your name and avatar. In browser Network tools, `/api/me` returns 200 with `username`, `displayName`, `images`, `bio`, `visibility`, and `theme`, and no Spotify tokens. The live identity-response contract is not covered by mocks; see [known architectural debt](ARCHITECTURE.md#known-architectural-debt).
 2. From the repository root, inspect persistence without printing token values:
 
    ```bash
@@ -93,6 +96,6 @@ Use the configured frontend origin consistently (normally `http://127.0.0.1:3000
 
 The automated suite verifies expiry by setting the test session's expiry into the past; there is no need to wait an hour or edit the development database.
 
-## Completion record
+## Historical Phase 2 completion record
 
-Automated verification: all 10 tests passed with no skips, including a fresh-process session read and a blank-database migration check. Local migration and seed validation are also run during implementation. The live Spotify/browser checklist is the final user acceptance exercise; it requires your Spotify login and has not been claimed as performed by automation.
+At Phase 2 completion, all 10 then-existing tests passed with no skips, including a fresh-process session read and a blank-database migration check. Local migration and seed validation were recorded during that implementation. This historical count is not the current suite size. The live Spotify/browser checklist requires your Spotify login and has not been claimed as performed by automation.

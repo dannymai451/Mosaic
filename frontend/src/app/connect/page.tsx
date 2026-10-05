@@ -1,6 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { Suspense } from "react";
+import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 
 const API_BASE_URL =
   process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://127.0.0.1:8000";
@@ -37,23 +39,17 @@ const ERROR_MESSAGES: Record<string, string> = {
     "Your Spotify profile could not be loaded. Please try connecting again.",
 };
 
+const DEFAULT_MESSAGE = "Connect your Spotify account to continue.";
+
+function ConnectMessage() {
+  const error = useSearchParams().get("error");
+  return error
+    ? ERROR_MESSAGES[error] ??
+        "Something went wrong while connecting Spotify. Please try again."
+    : DEFAULT_MESSAGE;
+}
+
 export default function ConnectPage() {
-  const [message, setMessage] = useState(
-    "Connect your Spotify account to continue."
-  );
-
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const error = params.get("error");
-
-    if (error) {
-      setMessage(
-        ERROR_MESSAGES[error] ??
-          "Something went wrong while connecting Spotify. Please try again."
-      );
-    }
-  }, []);
-
   return (
     <main className="flex min-h-screen items-center justify-center bg-zinc-950 px-6 text-white">
       <div className="w-full max-w-md rounded-2xl border border-zinc-800 bg-zinc-900 p-8 text-center">
@@ -66,7 +62,9 @@ export default function ConnectPage() {
         </h1>
 
         <p className="mt-4 text-zinc-400">
-          {message}
+          <Suspense fallback={DEFAULT_MESSAGE}>
+            <ConnectMessage />
+          </Suspense>
         </p>
 
         <a
@@ -76,12 +74,12 @@ export default function ConnectPage() {
           Connect Spotify
         </a>
 
-        <a
+        <Link
           href="/"
           className="mt-5 block text-sm text-zinc-500 hover:text-zinc-300"
         >
           Back home
-        </a>
+        </Link>
       </div>
     </main>
   );
