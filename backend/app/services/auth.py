@@ -39,7 +39,7 @@ async def persist_login(db: AsyncSession, profile: dict, tokens: dict) -> str:
             local_profile = await profiles.create(
                 db,
                 user_id=user.id,
-                username=f"user_{user.id.hex}",
+                username=f"user_{user.id.hex[:25]}",
                 display_name=profile.get("display_name") or "Spotify user",
             )
         images = profile.get("images") or []

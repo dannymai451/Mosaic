@@ -55,35 +55,40 @@ one hour and confirm the profile still loads. Click Log out and confirm landing
 page navigation and `/api/me` returns 401. Open dashboard while signed out and
 confirm reconnect/retry controls. Backend tests cover expiry without waiting.
 
-## Profile settings preview (unsaved)
+## Profile settings and saving
 
 **User purpose:** preview username, display name, bio, visibility, and one of three
-themes before any save integration exists.
+themes, then save those edits to the owner profile.
 
 **Entry points:** dashboard's Edit profile link; `/settings/profile`.
 
 **Implementation:** `frontend/src/app/settings/profile/page.tsx` (`ProfileForm`,
-`THEMES`, loader, local validation and draft/preview state).
+loader, validation and saved/draft/preview state),
+`frontend/src/components/profile-card.tsx`, `share-profile.tsx`.
 
 **Backend/data:** GET `/api/me` supplies the initial owner profile. This page does
-not call PATCH. Preview and Reset edits only change local state; private/public
-is a preview label, and there is no public-profile sharing route.
+call PATCH `/api/me/profile` to persist changed fields. Preview changes only
+updates local state; Reset edits restores the last successful save. Failed saves
+keep the draft and show validation, conflict, expiry, or retry feedback. Controls
+are disabled during saving. Sharing uses the saved username and visibility.
 
 **Tests:** no frontend automated behavior tests. Backend owner read tests cover
 the source response, but not the form. Lint/typecheck/build cover compilation.
 
 **Verification:** sign in, open settings, enter a username such as `music_fan`
-(generated first-login usernames may exceed the form limit), change bio/theme,
+(new generated usernames fit the form limit; older names may remain unchanged), change bio/theme,
 and click Preview changes. Confirm the preview changes, Reset edits restores
-loaded values, and refresh discards edits. With a missing session verify the
+last saved values, and refresh discards unsaved edits. Save changes and refresh
+to confirm persistence. Try a taken username and confirm the draft is retained.
+With a missing session verify the
 Connect Spotify prompt. Stop the API and reload to verify error/retry state.
 
 ## Owner profile persistence API
 
-**User purpose:** persist owner profile edits; backend capability awaiting UI wiring.
+**User purpose:** persist owner profile edits from settings.
 
 **Entry point:** authenticated PATCH `/api/me/profile`; API docs at
-`http://127.0.0.1:8000/docs`. There is no save button in settings yet.
+`http://127.0.0.1:8000/docs`; Save changes in `/settings/profile`.
 
 **Implementation:** `backend/app/api/routes/profiles.py`, `app/schemas/profile.py`,
 `app/repositories/profiles.py`, `app/models/profile.py` (paths relative to backend).
@@ -111,6 +116,40 @@ await fetch("http://127.0.0.1:8000/api/me/profile", {
 If you configured a different API URL, substitute it. Expect 200 and the new bio;
 refresh settings and confirm it loads. This intentionally changes your profile;
 record the old bio first if you want to restore it. Signed-out PATCH should be 401.
+
+## Read-only public profiles and sharing
+
+**User purpose:** share a saved public profile with logged-out visitors.
+
+**Entry points:** settings' View public profile / Share profile / Copy link;
+`/@username`; GET `/api/profiles/{username}/public`.
+
+**Implementation:** `backend/app/api/routes/profiles.py`,
+`frontend/src/app/[handle]/page.tsx` and `not-found.tsx`,
+`frontend/src/components/profile-card.tsx` and `share-profile.tsx`.
+
+**Backend/data:** public reads do not require a session. Private and nonexistent
+profiles both return 404 with the same message, even to owners. The public DTO
+contains only username, displayName, images, bio, and theme, with no internal IDs
+or Spotify tokens. The API and server fetch disable caching so subsequent
+requests respect visibility changes. The public endpoint supports GET only;
+all writes still derive ownership from the active session.
+
+The shared route decodes its dynamic parameter before validating `@username`.
+It renders a mobile profile card and sharing controls, with unavailable and
+upstream-error states. Native Web Share falls back to clipboard; Copy link also
+copies directly. If clipboard access fails, a selectable link is shown. Native
+share cancellation ends quietly. Unsaved edits never change the shared URL.
+
+**Tests:** `backend/tests/test_public_profiles.py` covers anonymous reads, private
+profiles, the public DTO, renamed URLs, visibility withdrawal, and attempts by
+visitors/other owners to write. Browser acceptance is recorded in
+[Phase 3 verification](phase-3-verification.md), including 360/390/430px layouts.
+
+**Verification:** save a public profile, copy its link, and open it signed out.
+Verify both `/@username` and `/%40username`. Change the saved username and confirm
+the old URL is unavailable. Save as private and reload the shared URL; no profile
+details should appear. Album selection and mosaics belong to later phases.
 
 ## Local persistence and fixture tools
 

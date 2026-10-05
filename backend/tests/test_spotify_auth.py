@@ -108,6 +108,12 @@ def test_callback_creates_session_and_returns_profile(database_client):
 
     assert body["displayName"] == "Test User"
     assert body["images"][0]["url"] == "https://example.com/avatar.jpg"
+    assert len(body["username"]) <= 30
+
+    # A brand-new owner can save their generated username through the edit API.
+    assert client.patch(
+        "/api/me/profile", json={"username": body["username"], "bio": "First edit"}
+    ).status_code == 200
 
     # Tokens must never be exposed through /api/me.
     assert "access_token" not in body

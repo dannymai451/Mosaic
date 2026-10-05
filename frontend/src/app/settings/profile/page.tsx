@@ -1,19 +1,13 @@
 "use client";
 
 import Link from "next/link";
-import Image from "next/image";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { ProfileCard, THEMES, themePreset, type Theme } from "@/components/profile-card";
+import { ShareProfile } from "@/components/share-profile";
 
 const API_BASE_URL =
   process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://127.0.0.1:8000";
 
-const THEMES = {
-  midnight: { label: "Midnight", card: "bg-zinc-900 text-white", accent: "text-green-400", swatch: "bg-zinc-950" },
-  paper: { label: "Paper", card: "bg-stone-100 text-stone-900", accent: "text-emerald-800", swatch: "bg-stone-100" },
-  plum: { label: "Plum", card: "bg-purple-950 text-white", accent: "text-purple-200", swatch: "bg-purple-950" },
-} as const;
-
-type Theme = keyof typeof THEMES;
 type ProfileDraft = {
   username: string;
   displayName: string;
@@ -25,36 +19,45 @@ type OwnerProfile = Omit<ProfileDraft, "theme"> & {
   theme: { preset?: string };
   images: { url: string }[];
 };
-type Errors = Partial<Record<"username" | "displayName" | "bio", string>>;
+type Errors = Partial<Record<keyof ProfileDraft, string>>;
 
 const inputClass = "mt-2 min-h-11 w-full rounded-xl border border-zinc-700 bg-zinc-950 px-3 py-3 text-base text-white outline-none focus:border-green-400 focus:ring-2 focus:ring-green-400/30";
 const buttonClass = "inline-flex min-h-11 items-center justify-center rounded-full border border-zinc-600 px-5 py-2 text-sm font-semibold hover:border-green-400 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-green-400";
 
-function ProfileForm({ profile }: { profile: OwnerProfile }) {
-  const initial: ProfileDraft = {
+function toDraft(profile: OwnerProfile): ProfileDraft {
+  return {
     username: profile.username,
     displayName: profile.displayName,
     bio: profile.bio,
     visibility: profile.visibility,
-    theme: profile.theme.preset && profile.theme.preset in THEMES
-      ? profile.theme.preset as Theme : "midnight",
+    theme: themePreset(profile.theme.preset),
   };
+}
+
+function ProfileForm({ profile }: { profile: OwnerProfile }) {
+  const initial = toDraft(profile);
+  const [saved, setSaved] = useState(initial);
   const [draft, setDraft] = useState(initial);
   const [preview, setPreview] = useState(initial);
   const [errors, setErrors] = useState<Errors>({});
   const [status, setStatus] = useState("");
-  const theme = THEMES[preview.theme];
+  const [saveError, setSaveError] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [signedOut, setSignedOut] = useState(false);
+  const saveController = useRef<AbortController | null>(null);
+  useEffect(() => () => saveController.current?.abort(), []);
 
   function change<K extends keyof ProfileDraft>(field: K, value: ProfileDraft[K]) {
     setDraft((current) => ({ ...current, [field]: value }));
     setErrors((current) => ({ ...current, [field]: undefined }));
     setStatus("");
+    setSaveError("");
   }
 
-  function previewChanges(event: React.FormEvent<HTMLFormElement>) {
-    event.preventDefault();
+  function validate(): boolean {
     const nextErrors: Errors = {};
-    if (!/^[a-z0-9_]{3,30}$/.test(draft.username)) {
+    // Legacy generated usernames remain usable when editing other fields.
+    if (draft.username !== saved.username && !/^[a-z0-9_]{3,30}$/.test(draft.username)) {
       nextErrors.username = "Use 3–30 lowercase letters, numbers, or underscores.";
     }
     if (!draft.displayName.trim()) {
@@ -68,29 +71,109 @@ function ProfileForm({ profile }: { profile: OwnerProfile }) {
       setStatus("");
       const firstField = Object.keys(nextErrors)[0];
       document.getElementById(firstField)?.focus();
-      return;
+      return false;
     }
+    return true;
+  }
+
+  function previewChanges() {
+    if (!validate()) return;
     setPreview({ ...draft, displayName: draft.displayName.trim() });
     setStatus("Preview updated. Your changes have not been saved.");
   }
 
+  async function save(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (saveController.current || !validate()) return;
+    const changes: Record<string, unknown> = {};
+    if (draft.username !== saved.username) changes.username = draft.username;
+    if (draft.displayName.trim() !== saved.displayName) changes.display_name = draft.displayName.trim();
+    if (draft.bio !== saved.bio) changes.bio = draft.bio;
+    if (draft.visibility !== saved.visibility) changes.visibility = draft.visibility;
+    if (draft.theme !== saved.theme) changes.theme = { preset: draft.theme };
+    if (!Object.keys(changes).length) {
+      setStatus("No changes to save.");
+      return;
+    }
+    const controller = new AbortController();
+    saveController.current = controller;
+    setSaving(true);
+    setStatus("");
+    setSaveError("");
+    setSignedOut(false);
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/me/profile`, {
+        method: "PATCH",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(changes),
+        signal: AbortSignal.any([controller.signal, AbortSignal.timeout(10000)]),
+      });
+      if (controller.signal.aborted) return;
+      if (response.status === 401) {
+        setSignedOut(true);
+        setSaveError("Your session expired. Connect Spotify again to save your profile.");
+        return;
+      }
+      if (response.status === 409) {
+        setErrors({ username: "This username is unavailable. Choose another." });
+        setSaveError("Your changes were not saved. Choose an available username.");
+        document.getElementById("username")?.focus();
+        return;
+      }
+      if (response.status === 422) {
+        const data = await response.json();
+        const fieldErrors: Errors = {};
+        if (Array.isArray(data.detail)) {
+          for (const issue of data.detail) {
+            const field = issue.loc?.[1] === "display_name" ? "displayName" : issue.loc?.[1];
+            if (["username", "displayName", "bio", "visibility", "theme"].includes(field)) {
+              fieldErrors[field as keyof ProfileDraft] = "Check this value and try again.";
+            }
+          }
+        }
+        setErrors(fieldErrors);
+        setSaveError("Your changes were not saved. Check the profile fields and try again.");
+        document.getElementById(Object.keys(fieldErrors)[0])?.focus();
+        return;
+      }
+      if (!response.ok) throw new Error("Save failed");
+      const result: OwnerProfile = await response.json();
+      if (controller.signal.aborted) return;
+      const next = toDraft(result);
+      setSaved(next);
+      setDraft(next);
+      setPreview(next);
+      setErrors({});
+      setStatus("Profile saved.");
+    } catch {
+      if (!controller.signal.aborted) setSaveError("Could not confirm the save. Your edits are still here; try saving again.");
+    } finally {
+      saveController.current = null;
+      if (!controller.signal.aborted) setSaving(false);
+    }
+  }
+
   function reset() {
-    setDraft(initial);
-    setPreview(initial);
+    setDraft(saved);
+    setPreview(saved);
     setErrors({});
+    setSaveError("");
     setStatus("Edits reset to your current profile.");
   }
 
   return (
     <div className="mt-8 grid min-w-0 gap-8 lg:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)]">
-      <form noValidate onSubmit={previewChanges} className="min-w-0 rounded-2xl border border-zinc-800 bg-zinc-900 p-5 sm:p-8">
+      <form noValidate onSubmit={save} aria-busy={saving} className="min-w-0 rounded-2xl border border-zinc-800 bg-zinc-900 p-5 sm:p-8">
         <h2 className="text-xl font-semibold">Profile details</h2>
-        <p id="draft-notice" className="mt-2 text-sm leading-6 text-zinc-400">Preview your edits here. Saving will be available in the next step; changes are lost when you leave or refresh.</p>
+        <p id="draft-notice" className="mt-2 text-sm leading-6 text-zinc-400">Preview your edits, then save them. Unsaved changes are lost when you leave or refresh.</p>
+
+        <fieldset disabled={saving} className="min-w-0">
 
         <div className="mt-6">
           <label htmlFor="username" className="text-sm font-semibold">Username</label>
           <input id="username" name="username" value={draft.username} onChange={(event) => change("username", event.target.value)} maxLength={30} required autoCapitalize="none" autoCorrect="off" spellCheck={false} aria-invalid={Boolean(errors.username)} aria-describedby={`username-help${errors.username ? " username-error" : ""}`} className={inputClass} />
-          <p id="username-help" className="mt-2 text-xs leading-5 text-zinc-400">3–30 lowercase letters, numbers, or underscores. Username availability will be checked when saving is added.</p>
+          <p id="username-help" className="mt-2 text-xs leading-5 text-zinc-400">3–30 lowercase letters, numbers, or underscores. Changing your username changes your shared link.</p>
           {errors.username && <p id="username-error" className="mt-2 text-sm text-red-300">{errors.username}</p>}
         </div>
 
@@ -109,7 +192,7 @@ function ProfileForm({ profile }: { profile: OwnerProfile }) {
 
         <fieldset className="mt-6">
           <legend className="text-sm font-semibold">Visibility</legend>
-          <p id="visibility-help" className="mt-2 text-xs leading-5 text-zinc-400">When saving and sharing are available, private profiles will be visible only to you. Public profiles will be viewable by anyone with your link.</p>
+          <p id="visibility-help" className="mt-2 text-xs leading-5 text-zinc-400">Private profiles are visible only to you. Save as public to let anyone with your link view your profile.</p>
           <div className="mt-3 grid gap-3 sm:grid-cols-2">
             {(["private", "public"] as const).map((visibility) => (
               <label key={visibility} className="flex min-h-12 cursor-pointer items-center gap-3 rounded-xl border border-zinc-700 px-4 py-3 has-checked:border-green-400 has-checked:bg-green-400/5">
@@ -119,6 +202,7 @@ function ProfileForm({ profile }: { profile: OwnerProfile }) {
             ))}
           </div>
         </fieldset>
+        {errors.visibility && <p role="alert" className="mt-2 text-sm text-red-300">{errors.visibility}</p>}
 
         <fieldset className="mt-6">
           <legend className="text-sm font-semibold">Theme</legend>
@@ -132,28 +216,29 @@ function ProfileForm({ profile }: { profile: OwnerProfile }) {
             ))}
           </div>
         </fieldset>
+        {errors.theme && <p role="alert" className="mt-2 text-sm text-red-300">{errors.theme}</p>}
 
         <div className="mt-8 flex flex-wrap gap-3">
-          <button type="submit" aria-describedby="draft-notice" className={`${buttonClass} border-green-500 bg-green-500 text-black hover:bg-green-400`}>Preview changes</button>
+          <button type="submit" className={`${buttonClass} border-green-500 bg-green-500 text-black hover:bg-green-400 disabled:opacity-60`}>{saving ? "Saving…" : "Save changes"}</button>
+          <button type="button" onClick={previewChanges} aria-describedby="draft-notice" className={buttonClass}>Preview changes</button>
           <button type="button" onClick={reset} className={buttonClass}>Reset edits</button>
         </div>
+        </fieldset>
+        {saveError && <p role="alert" className="mt-4 text-sm text-red-300">{saveError}</p>}
+        {signedOut && <Link href="/connect" className={`mt-4 ${buttonClass}`}>Connect Spotify</Link>}
         <p role="status" className="mt-4 min-h-6 text-sm text-green-300">{status}</p>
       </form>
 
       <aside aria-label="Profile preview" className="min-w-0">
-        <p className="mb-3 text-xs font-semibold uppercase tracking-widest text-zinc-400">Profile preview · unsaved</p>
-        <div className={`rounded-2xl border border-zinc-700 p-6 sm:p-8 ${theme.card}`}>
-          {profile.images[0]?.url ? (
-            <Image src={profile.images[0].url} alt="" width={64} height={64} unoptimized className="h-16 w-16 rounded-full object-cover" />
-          ) : (
-            <div aria-hidden="true" className={`flex h-16 w-16 items-center justify-center rounded-full border border-current text-2xl ${theme.accent}`}>♪</div>
-          )}
-          <h2 className="mt-5 break-words text-2xl font-bold">{preview.displayName}</h2>
-          <p className={`mt-1 break-all text-sm ${theme.accent}`}>@{preview.username}</p>
-          <p className="mt-5 whitespace-pre-wrap break-words text-sm leading-6">{preview.bio || "Your bio will appear here."}</p>
-          <p className={`mt-6 text-sm font-semibold ${theme.accent}`}>{preview.visibility === "private" ? "Private profile" : "Public profile"}</p>
-        </div>
+        <p className="mb-3 text-xs font-semibold uppercase tracking-widest text-zinc-400">Profile preview</p>
+        <ProfileCard profile={{ ...preview, theme: { preset: preview.theme }, images: profile.images }} visibility={preview.visibility} />
         <p className="mt-3 text-xs leading-5 text-zinc-400">Select Preview changes to refresh this preview. This does not publish your profile.</p>
+        {saved.visibility === "public" ? (
+          <div className="mt-6 space-y-4">
+            <Link href={`/@${saved.username}`} className="inline-flex min-h-11 items-center break-all text-sm text-green-400 underline">View public profile</Link>
+            <ShareProfile key={saved.username} username={saved.username} />
+          </div>
+        ) : <p className="mt-6 text-sm text-zinc-400">Save your profile as public to share it.</p>}
       </aside>
     </div>
   );

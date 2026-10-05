@@ -5,6 +5,10 @@
 - Next.js route files use `src/app/<route>/page.tsx`; layout and global CSS live
   at the app root. Types and small components currently live in page files.
   Read the relevant installed Next.js guide before frontend framework changes.
+- Shared handles use `src/app/[handle]/page.tsx` for `/@username`. In the installed
+  Next.js version, browser checks observed `%40username` in the route parameter.
+  Decode safely before validating; verify both literal `@` and `%40` URLs in a
+  running app. A successful build alone does not verify route behavior.
 - Python module/function names use snake_case, models/schema classes PascalCase.
   `.editorconfig` specifies UTF-8/LF, two spaces generally and four for Python.
 - Backend modules import `app.*` and commands run from `backend/`. Alembic's
@@ -43,6 +47,10 @@ intentionally separate, requiring only DATABASE_URL. Frontend API URL is current
 repeated in pages via `NEXT_PUBLIC_API_BASE_URL`; there is no shared config module.
 Only public settings belong under `NEXT_PUBLIC_`. Commit `.env.example` files,
 never real `.env` files. Use `127.0.0.1` consistently in the local browser flow.
+Next's development origin allowlist in `frontend/next.config.ts` explicitly includes
+`127.0.0.1`, since `npm run dev` starts with `localhost` by default. Without this,
+Next blocks the dev HMR endpoint and client pages can remain on their initial
+loading screen. Verify local sign-in using the documented host after config changes.
 
 Do not hand-edit `.next/`, `next-env.d.ts`, `*.tsbuildinfo`, virtual environments,
 or dependency directories. Regenerate lockfiles with npm/uv only when dependencies

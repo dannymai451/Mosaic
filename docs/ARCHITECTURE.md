@@ -4,8 +4,8 @@
 
 Mosaic is an early music-profile application. Implemented product behavior is
 Spotify sign-in, persistent owner sessions, an owner dashboard, profile previews,
-and a profile-update API. Album selection, mosaic generation, and public profile
-sharing are not implemented. `services/spotify.py` and `services/mosaic.py` are
+profile saving, and read-only public profile sharing. Album selection and mosaic
+generation are not implemented. `services/spotify.py` and `services/mosaic.py` are
 docstring-only placeholders; the project-plan PDF describes intent, not shipped behavior.
 
 - `frontend/`: Next.js 16.3.8 App Router, React 19.2.8, TypeScript with strict
@@ -22,7 +22,7 @@ docstring-only placeholders; the project-plan PDF describes intent, not shipped 
 | `frontend/src/app/` | Route pages, root layout, global CSS; components/types are mostly colocated in pages. |
 | `frontend/src/styles/tokens.css` | Tailwind theme tokens; pages currently also use hardcoded utility colors. |
 | `backend/app/main.py` | FastAPI creation, router registration, CORS, active health endpoint. |
-| `backend/app/api/routes/` | HTTP/authentication orchestration and owner profile updates. |
+| `backend/app/api/routes/` | HTTP/authentication orchestration, owner updates, and public profile reads. |
 | `backend/app/services/` | Multi-write account/login transactions; future integration placeholders. |
 | `backend/app/repositories/` | Async persistence functions accepting a caller-provided session. |
 | `backend/app/models/` | Four SQLAlchemy models; `__init__.py` registers them together. |
@@ -82,15 +82,20 @@ are in [conventions](CONVENTIONS.md#hard-guardrails).
 ## State management
 
 Frontend state uses React `useState`/`useEffect`, with no global store or query
-library. Settings keeps separate draft and preview states; refresh/navigation
-loses unsaved changes. Connect reads the `error` URL query with Next's
+library. Settings keeps separate saved, draft, and preview states; refresh/navigation
+loses unsaved changes. Saves send changed fields only and retain drafts on failure.
+Public reads use a server page and uncached API fetch, with a small client sharing
+component. The shared card/theme presets also supply the settings preview.
+Connect reads the `error` URL query with Next's
 `useSearchParams` behind a Suspense boundary. Dashboard
 loads `/api/me`, displays errors, and POSTs logout before returning home.
 
 Authentication state resides in PostgreSQL plus the HttpOnly `mosaic_session`
 cookie (one-hour lifetime). OAuth uses a ten-minute state cookie, validates it
 with constant-time comparison, then deletes it. Tokens are not put in browser
-storage or owner DTOs. Local cookies currently have `secure=False`.
+storage or owner DTOs. Local cookies currently have `secure=False`. Public profile
+reads require no cookie and return an allowlisted DTO only when saved visibility
+is public.
 
 ## Data access and configuration
 
@@ -139,14 +144,13 @@ static type checker. No global formatting gate is installed.
 
 ## Known architectural debt
 
-- Profile settings is preview-only; the PATCH API is implemented but not wired
-  to the form. Visibility/theme do not create a public profile route.
-- First login generates `user_<32 hex characters>` (37 characters), whereas PATCH
-  and the preview form accept usernames up to 30. Existing generated names can
-  fail preview validation until edited; do not copy that mismatch into new work.
-- `persist_login` and mocks expect a Spotify `account_id` field. There is no
-  normalization layer or real-response fixture establishing the live identity
-  contract; mocked OAuth passes do not establish live Spotify compatibility.
+- First login now generates a 30-character username. Existing 37-character
+  generated names remain readable and can be kept when saving other fields;
+  changing a username still requires the current 3-30 character format.
+- `persist_login` uses Spotify's `account_id`, as required by the current
+  [provider reference](https://developer.spotify.com/documentation/web-api/reference/get-current-users-profile).
+  There is no real-response fixture or live OAuth acceptance run; mocked OAuth
+  passes do not establish live Spotify compatibility.
 - HTTP exchange is inline in `api/routes/auth.py`; the Spotify service placeholder
   is not a working example. `api/routes/health.py` is also unregistered: the active
   health endpoint is in `main.py`.

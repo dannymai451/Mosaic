@@ -189,6 +189,19 @@ and seed idempotency. The existing health and OAuth tests also run. See
 [Phase 2 acceptance verification](docs/phase-2-verification.md) for setup and the
 manual browser checklist.
 
+## Phase 3 profile editing and sharing
+
+Open `/settings/profile` while signed in to preview and save username, display
+name, bio, visibility, and theme. Save as public to enable View public profile,
+Share profile, and Copy link. Shared URLs use `/@username` and work signed out.
+Private or missing profiles return the same unavailable page; switching back to
+private prevents subsequent public reads. Renaming changes the shared URL.
+
+GET `/api/profiles/{username}/public` returns only public profile fields; the
+existing PATCH `/api/me/profile` remains owner-only. Album/mosaic editing belongs
+to later phases. See [Phase 3 acceptance verification](docs/phase-3-verification.md)
+for the criteria, coverage, and browser checklist.
+
 ## Shared setup files
 
 - `.editorconfig` gives supporting editors consistent whitespace settings:

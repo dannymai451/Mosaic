@@ -6,6 +6,7 @@ from app.api.routes.auth import (
     me_router,
     spotify_router,
 )
+from app.api.routes.profiles import public_router
 from app.api.routes.profiles import router as profiles_router
 
 app = FastAPI(
@@ -29,6 +30,7 @@ app.include_router(spotify_router)
 app.include_router(auth_router)
 app.include_router(me_router)
 app.include_router(profiles_router)
+app.include_router(public_router)
 
 
 @app.get("/api/health")

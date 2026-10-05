@@ -1,8 +1,8 @@
-"""Owner profile editing routes."""
+"""Owner profile editing and read-only public sharing routes."""
 
 from typing import Annotated
 
-from fastapi import APIRouter, Cookie, Depends, HTTPException
+from fastapi import APIRouter, Cookie, Depends, HTTPException, Response
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -11,6 +11,32 @@ from app.repositories import profiles, sessions
 from app.schemas.profile import ProfilePatch
 
 router = APIRouter(prefix="/api/me/profile", tags=["profiles"])
+public_router = APIRouter(prefix="/api/profiles", tags=["profiles"])
+
+
+@public_router.get("/{username}/public")
+async def get_public_profile(
+    username: str,
+    response: Response,
+    db: Annotated[AsyncSession, Depends(get_db)],
+):
+    # Visibility changes must apply immediately, including for previously shared URLs.
+    response.headers["Cache-Control"] = "no-store"
+    profile = await profiles.get_by_username(db, username)
+    if profile is None or profile.visibility != "public":
+        raise HTTPException(
+            status_code=404,
+            detail="Profile not found",
+            headers={"Cache-Control": "no-store"},
+        )
+    # Explicit allowlist: no internal identity, session, or Spotify connection data.
+    return {
+        "username": profile.username,
+        "displayName": profile.display_name,
+        "images": [{"url": profile.avatar_url}] if profile.avatar_url else [],
+        "bio": profile.bio,
+        "theme": profile.theme,
+    }
 
 
 @router.patch("")
