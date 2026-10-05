@@ -202,6 +202,28 @@ existing PATCH `/api/me/profile` remains owner-only. Album/mosaic editing belong
 to later phases. See [Phase 3 acceptance verification](docs/phase-3-verification.md)
 for the criteria, coverage, and browser checklist.
 
+## Phase 4 saved albums and Featured Albums
+
+After applying migrations and restarting the API, open **Choose albums** on the
+dashboard (or `/settings/albums`). Existing users must reconnect Spotify once to
+grant `user-library-read`. The picker loads 20 saved albums per page, supports
+Load more, and saves up to 100 unique Featured Album IDs on the owner profile.
+Add/remove changes are drafts until **Save Featured Albums**; **Reset edits**
+restores the last save. Album details include an Open in Spotify link.
+
+Only IDs are persisted; album metadata and artwork come from Spotify. Selections
+outside the loaded library pages remain removable and their details load on demand.
+This is the private working set for the later mosaic builder; public profiles
+still show the Phase 3 profile card. Selection does not change your Spotify library.
+
+GET `/api/me/albums` refreshes Spotify access server-side and normalizes album data.
+GET/PUT `/api/me/featured-albums` reads/replaces the owner's selection; PUT accepts
+`{"album_ids": [...]}` and validates newly added albums against the saved library.
+Removal-only saves work without Spotify. Tokens never appear in these responses.
+
+See [Phase 4 end-to-end testing workflow](docs/phase-4-verification.md) for setup,
+the browser checklist, failure scenarios, and the current verification record.
+
 ## Shared setup files
 
 - `.editorconfig` gives supporting editors consistent whitespace settings:

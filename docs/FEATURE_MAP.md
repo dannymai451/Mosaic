@@ -149,7 +149,51 @@ visitors/other owners to write. Browser acceptance is recorded in
 **Verification:** save a public profile, copy its link, and open it signed out.
 Verify both `/@username` and `/%40username`. Change the saved username and confirm
 the old URL is unavailable. Save as private and reload the shared URL; no profile
-details should appear. Album selection and mosaics belong to later phases.
+details should appear. Featured Album selection is owner-only; public mosaics
+belong to Phase 5.
+
+## Saved albums and private Featured Album selection
+
+**User purpose:** browse the connected Spotify library and save the working set
+of albums to use in the later mosaic builder.
+
+**Entry points:** dashboard's Choose albums link; `/settings/albums`;
+GET `/api/me/albums?limit=20&offset=0`; GET/PUT `/api/me/featured-albums`;
+GET `/api/me/albums/{album_id}` for on-demand saved-selection details.
+
+**Implementation:** `frontend/src/components/album-picker.tsx`, `album-detail.tsx`,
+`frontend/src/app/settings/albums/page.tsx`; `backend/app/api/routes/albums.py`,
+`app/services/spotify.py`, `app/schemas/album.py`, `app/repositories/profiles.py`.
+
+**Backend/data:** requires an active owner session; OAuth now requests
+`user-library-read`, so existing connections need reauthorization. Saved-album
+pages return an allowlisted album DTO plus total/nextOffset, never Spotify tokens,
+raw provider pagination URLs, tracks, or connection data. Refresh tokens stay
+encrypted; access is refreshed server-side per request, with one bounded retry
+after an upstream 401 and immediate safe errors for 403/429/network failures.
+
+PUT accepts `album_ids` (0-100 unique 22-character Spotify IDs), rejects extra
+fields, verifies new additions against the owner's saved library, and persists
+the ordered ID list on the profile in one transaction. Removal-only saves do not
+call Spotify. No catalog data is stored and the Spotify library is never changed.
+The working set is owner-only; public profiles and profile PATCH DTOs are unchanged.
+
+**Frontend:** Add/Remove edits a draft; Save persists; Reset restores the last
+save. Failed saves retain the draft. Load more appends deduplicated pages, and
+failed loads retain earlier albums/edits. Off-page selections show their ID until
+Details or a later library page resolves their name. Details uses a native dialog
+with a Spotify link, Escape dismissal, and focus trapping. The page has loading,
+empty, retry, expiry, reconnect, and rate-limit states.
+
+**Tests:** `backend/tests/test_albums.py` covers 20-item pagination, DTO/token
+minimization, persistence/order/removal, owner isolation, scopes/sessions, batching,
+validation and atomic failure, empty libraries/artwork, details, token rotation,
+bounded 401 retry, safe provider/network/malformed-response errors, and CORS
+exposure of Retry-After. Frontend behavior remains a manual browser check.
+
+**Verification:** follow [Phase 4 end-to-end workflow](phase-4-verification.md),
+including the live reconnect/load/add/save/reload/remove flow and mobile widths.
+Mocked checks establish application behavior, not live Spotify compatibility.
 
 ## Local persistence and fixture tools
 

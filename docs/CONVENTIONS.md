@@ -37,8 +37,12 @@ Session digests belong in `repositories/sessions.py`; encrypt refresh tokens in
 the service before persistence. Owner responses must not contain Spotify tokens.
 Use explicit HTTP status errors, OAuth error redirects, and frontend status-aware
 fetch handling. The settings loading effect is the preferred abort/retry example.
-Avoid copying the inactive health router or empty Spotify/mosaic services as if
-they were implemented infrastructure; see ARCHITECTURE's debt section.
+For Spotify library integration, copy `api/routes/albums.py` and
+`services/spotify.py`: normalize provider payloads, keep access tokens server-side,
+commit encrypted refresh-token rotation before subsequent reads, and return safe
+error codes. `/me/library/contains` replaces the deprecated album-specific
+membership endpoint. Avoid copying the inactive health router or empty mosaic
+service as implemented infrastructure; see ARCHITECTURE's debt section.
 
 ## Configuration and generated files
 
@@ -65,6 +69,11 @@ Use existing pytest/TestClient/respx patterns rather than introducing a framewor
 `test_persistent_auth.py` demonstrates persistence and HTTP mocks. Prefer tests of
 observable behavior/failure modes over coverage-only or implementation-mirroring
 tests. Live Spotify login and preview UI still need manual checks in FEATURE_MAP.
+
+For native album-detail dialogs, also check the development server: React Strict
+Mode repeats effect setup/cleanup. A queued close event from cleanup must not
+discard a dialog that has already reopened. The reproducible check is in
+[Phase 4 verification](phase-4-verification.md#browser-golden-path).
 
 ## Verification
 

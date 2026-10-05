@@ -4,9 +4,10 @@
 
 Mosaic is an early music-profile application. Implemented product behavior is
 Spotify sign-in, persistent owner sessions, an owner dashboard, profile previews,
-profile saving, and read-only public profile sharing. Album selection and mosaic
-generation are not implemented. `services/spotify.py` and `services/mosaic.py` are
-docstring-only placeholders; the project-plan PDF describes intent, not shipped behavior.
+profile saving, read-only public profile sharing, saved Spotify album browsing,
+and persistent owner Featured Album selection. Mosaic generation is not implemented.
+`services/spotify.py` implements token refresh and library reads;
+`services/mosaic.py` remains a placeholder. The project-plan PDF describes the roadmap.
 
 - `frontend/`: Next.js 16.3.8 App Router, React 19.2.8, TypeScript with strict
   checking, Tailwind CSS 4. npm and `package-lock.json` pin the installed graph.
@@ -23,10 +24,10 @@ docstring-only placeholders; the project-plan PDF describes intent, not shipped 
 | `frontend/src/styles/tokens.css` | Tailwind theme tokens; pages currently also use hardcoded utility colors. |
 | `backend/app/main.py` | FastAPI creation, router registration, CORS, active health endpoint. |
 | `backend/app/api/routes/` | HTTP/authentication orchestration, owner updates, and public profile reads. |
-| `backend/app/services/` | Multi-write account/login transactions; future integration placeholders. |
+| `backend/app/services/` | Account/login transactions and Spotify refresh/library integration; mosaic placeholder. |
 | `backend/app/repositories/` | Async persistence functions accepting a caller-provided session. |
 | `backend/app/models/` | Four SQLAlchemy models; `__init__.py` registers them together. |
-| `backend/app/schemas/` | Pydantic profile PATCH request validation. |
+| `backend/app/schemas/` | Profile PATCH validation and normalized album/selection contracts. |
 | `backend/app/db/` | Declarative base, engine/session dependency, local seed and connectivity commands. |
 | `backend/app/core/config.py` | Application environment settings instantiated at import. |
 | `backend/migrations/` | Alembic environment and versioned schema. |
@@ -99,10 +100,28 @@ is public.
 
 ## Data access and configuration
 
+The album picker at `/settings/albums` keeps separate saved/draft ID lists and
+ephemeral normalized metadata. It loads 20 albums at a time, deduplicates appended
+pages, retains drafts when saves or library reads fail, and resolves off-page
+selected album details on demand. Native dialog semantics provide focus trapping
+and Escape dismissal. Retrying library reads does not replace a pending selection.
+
+Album routes derive the owner from the session. Their Spotify context owns a short
+transaction to lock the connection, refresh access, and persist encrypted rotated
+refresh tokens before making library requests. A Spotify 401 gets one refresh/retry;
+429 returns immediately with a sanitized Retry-After header exposed through CORS.
+Access tokens live only in the request's service object. This initial implementation
+refreshes per Spotify-backed request rather than adding a shared token cache.
+
 Tables are `users` (unique Spotify account ID), `profiles` (one per user, unique
 case-sensitive username), `spotify_connections` (one encrypted refresh token per
 user), and `sessions` (digest, user ID, expiry). Profiles include avatar, bio,
-private/public visibility, and mutable JSONB theme. Foreign keys cascade deletes.
+private/public visibility, mutable JSONB theme, and an ordered JSONB
+`featured_album_ids` list (default empty). Only selected Spotify IDs are persisted,
+with up to 100 unique IDs allowed by the owner API; catalog metadata is not stored.
+Newly added IDs are checked against Spotify's `/me/library/contains` in batches of
+40 URIs; existing selections can be retained/removed after being unsaved in Spotify.
+Foreign keys cascade deletes.
 Alembic is the schema authority; changing a model requires a reviewed migration.
 
 Root `.env` configures Compose. Backend commands run from `backend/` so application
@@ -151,8 +170,8 @@ static type checker. No global formatting gate is installed.
   [provider reference](https://developer.spotify.com/documentation/web-api/reference/get-current-users-profile).
   There is no real-response fixture or live OAuth acceptance run; mocked OAuth
   passes do not establish live Spotify compatibility.
-- HTTP exchange is inline in `api/routes/auth.py`; the Spotify service placeholder
-  is not a working example. `api/routes/health.py` is also unregistered: the active
+- OAuth exchange is inline in `api/routes/auth.py`; album reads/refresh are in the
+  Spotify service. `api/routes/health.py` is also unregistered: the active
   health endpoint is in `main.py`.
 - Owner JSON responses are duplicated across routes. Request `display_name` becomes
   response `displayName`; frontend types are manually duplicated and partial.
