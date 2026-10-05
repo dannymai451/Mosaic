@@ -6,7 +6,7 @@ from app.api.routes.auth import (
     me_router,
     spotify_router,
 )
-
+from app.api.routes.profiles import router as profiles_router
 
 app = FastAPI(
     title="Mosaic API",
@@ -28,6 +28,7 @@ app.add_middleware(
 app.include_router(spotify_router)
 app.include_router(auth_router)
 app.include_router(me_router)
+app.include_router(profiles_router)
 
 
 @app.get("/api/health")
