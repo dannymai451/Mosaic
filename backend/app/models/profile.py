@@ -37,5 +37,8 @@ class Profile(Base):
     theme: Mapped[dict[str, object]] = mapped_column(
         MutableDict.as_mutable(JSONB), default=dict, server_default=text("'{}'::jsonb")
     )
+    featured_album_ids: Mapped[list[str]] = mapped_column(
+        JSONB, default=list, server_default=text("'[]'::jsonb")
+    )
 
     user: Mapped[User] = relationship(back_populates="profile")

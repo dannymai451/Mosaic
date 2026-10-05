@@ -39,6 +39,13 @@ async def create(
     return profile
 
 
+async def set_featured_albums(
+    db: AsyncSession, profile: Profile, album_ids: list[str]
+) -> None:
+    profile.featured_album_ids = list(album_ids)
+    await db.flush()
+
+
 async def update(
     db: AsyncSession,
     profile: Profile,
