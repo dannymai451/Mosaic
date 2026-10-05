@@ -2,6 +2,7 @@
 
 from uuid import UUID
 
+from sqlalchemy import select
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -10,6 +11,15 @@ from app.models import SpotifyConnection
 
 async def get_by_user_id(db: AsyncSession, user_id: UUID) -> SpotifyConnection | None:
     return await db.get(SpotifyConnection, user_id)
+
+
+async def get_for_update(db: AsyncSession, user_id: UUID) -> SpotifyConnection | None:
+    return await db.scalar(
+        select(SpotifyConnection)
+        .where(SpotifyConnection.user_id == user_id)
+        .with_for_update()
+        .execution_options(populate_existing=True)
+    )
 
 
 async def upsert(
