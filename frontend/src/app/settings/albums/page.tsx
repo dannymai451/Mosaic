@@ -9,6 +9,7 @@ export default function AlbumsPage() {
         <h1 className="mt-5 text-3xl font-bold sm:text-4xl">Choose your Featured Albums</h1>
         <p className="mt-3 max-w-xl text-zinc-400">Build a collection that represents your taste. Album selection is private to you while you prepare your mosaic.</p>
         <AlbumPicker />
+        <Link href="/builder" className="mt-6 inline-flex min-h-11 items-center rounded-full bg-green-500 px-5 font-semibold text-black focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-green-400">Build your mosaic</Link>
       </div>
     </main>
   );

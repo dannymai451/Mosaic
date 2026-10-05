@@ -25,6 +25,8 @@ class SpotifyError(Exception):
 
 
 def response_json(response: httpx.Response):
+    if response.status_code == 404:
+        raise SpotifyError(404, "spotify_album_unavailable")
     if response.status_code == 429:
         retry = response.headers.get("Retry-After", "")
         raise SpotifyError(

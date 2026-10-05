@@ -116,7 +116,7 @@ uv run ruff check .
 ## Database migrations
 
 Alembic manages the PostgreSQL schema for `users`, `spotify_connections`,
-`sessions`, and `profiles`. Start the local database, then from `backend/`:
+`sessions`, `profiles`, and `mosaics`. Start the local database, then from `backend/`:
 
 ```bash
 cp -n .env.example .env
@@ -213,8 +213,8 @@ restores the last save. Album details include an Open in Spotify link.
 
 Only IDs are persisted; album metadata and artwork come from Spotify. Selections
 outside the loaded library pages remain removable and their details load on demand.
-This is the private working set for the later mosaic builder; public profiles
-still show the Phase 3 profile card. Selection does not change your Spotify library.
+This is the owner's working set for the mosaic builder. Removing a saved selection
+also removes that album's mosaic tiles. Selection does not change your Spotify library.
 
 GET `/api/me/albums` refreshes Spotify access server-side and normalizes album data.
 GET/PUT `/api/me/featured-albums` reads/replaces the owner's selection; PUT accepts
@@ -223,6 +223,33 @@ Removal-only saves work without Spotify. Tokens never appear in these responses.
 
 See [Phase 4 end-to-end testing workflow](docs/phase-4-verification.md) for setup,
 the browser checklist, failure scenarios, and the current verification record.
+
+## Phase 5 mosaic builder
+
+Apply migrations (`uv run alembic upgrade head` from `backend/`) and restart the
+API. Open **Build mosaic** on the dashboard or `/builder`. Save Featured Albums
+first, then apply Heart, Star, Music note, or Blank / custom. Presets fill a 9x9
+grid, repeating covers when needed. Choose an album and click a cell to place it;
+Tab then Enter/Space also works. Erase tiles clears cells; Undo reverses up to 50
+draft edits; Reset restores the last save. Leaving discards unsaved edits.
+
+**Save mosaic** persists the complete layout. Refresh restores its coordinates.
+**Set Active** makes the saved design available on `/@username` when the profile
+is public; it does not change profile visibility. Later saves update the active
+design. This MVP supports one mosaic per profile. Public tiles open album details
+and Spotify links; artwork failures leave the saved shape available with retry.
+
+GET `/api/me/mosaic-presets` returns coordinate maps; GET/POST `/api/me/mosaics`
+reads/creates the design; PUT `/api/me/mosaics/{id}` replaces the entire layout;
+POST `/api/me/mosaics/{id}/activate` activates it. Saves allow up to 100 tiles,
+grids of 1-12 cells per dimension, unique in-bounds coordinates, and only the
+owner's Featured Album IDs. PostgreSQL stores IDs and coordinates, not artwork
+or catalog metadata. Public profile responses include only the active layout;
+GET `/api/profiles/{username}/albums/{album_id}` resolves details only for an
+album used in that public active design. Spotify credentials remain server-side.
+
+See [Phase 5 acceptance verification](docs/phase-5-verification.md) for the test
+record, browser workflow, and remaining live Spotify acceptance.
 
 ## Shared setup files
 

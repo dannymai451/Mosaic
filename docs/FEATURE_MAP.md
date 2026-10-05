@@ -130,7 +130,7 @@ record the old bio first if you want to restore it. Signed-out PATCH should be 4
 
 **Backend/data:** public reads do not require a session. Private and nonexistent
 profiles both return 404 with the same message, even to owners. The public DTO
-contains only username, displayName, images, bio, and theme, with no internal IDs
+contains only username, displayName, images, bio, theme, and an active mosaic layout (or null), with no internal IDs
 or Spotify tokens. The API and server fetch disable caching so subsequent
 requests respect visibility changes. The public endpoint supports GET only;
 all writes still derive ownership from the active session.
@@ -149,13 +149,14 @@ visitors/other owners to write. Browser acceptance is recorded in
 **Verification:** save a public profile, copy its link, and open it signed out.
 Verify both `/@username` and `/%40username`. Change the saved username and confirm
 the old URL is unavailable. Save as private and reload the shared URL; no profile
-details should appear. Featured Album selection is owner-only; public mosaics
-belong to Phase 5.
+details should appear. Featured Album selection is owner-only; only the active
+mosaic's used album IDs and coordinates appear publicly. Public album details
+are also withdrawn when the profile becomes private.
 
 ## Saved albums and private Featured Album selection
 
 **User purpose:** browse the connected Spotify library and save the working set
-of albums to use in the later mosaic builder.
+of albums to use in the mosaic builder.
 
 **Entry points:** dashboard's Choose albums link; `/settings/albums`;
 GET `/api/me/albums?limit=20&offset=0`; GET/PUT `/api/me/featured-albums`;
@@ -176,7 +177,9 @@ PUT accepts `album_ids` (0-100 unique 22-character Spotify IDs), rejects extra
 fields, verifies new additions against the owner's saved library, and persists
 the ordered ID list on the profile in one transaction. Removal-only saves do not
 call Spotify. No catalog data is stored and the Spotify library is never changed.
-The working set is owner-only; public profiles and profile PATCH DTOs are unchanged.
+The working set is owner-only; public profiles expose only active mosaic tiles.
+Removing a Featured Album prunes all of its tiles in the same transaction, so
+the active layout never retains a withdrawn selection. Profile PATCH remains unchanged.
 
 **Frontend:** Add/Remove edits a draft; Save persists; Reset restores the last
 save. Failed saves retain the draft. Load more appends deduplicated pages, and
@@ -195,6 +198,63 @@ exposure of Retry-After. Frontend behavior remains a manual browser check.
 including the live reconnect/load/add/save/reload/remove flow and mobile widths.
 Mocked checks establish application behavior, not live Spotify compatibility.
 
+## Mosaic builder and public active designs
+
+**User purpose:** arrange Featured Album covers into a preset/custom shape, save
+the exact layout, and show the active mosaic on a public profile.
+
+**Entry points:** dashboard's Build mosaic link; album settings' Build your mosaic;
+`/builder`; GET `/api/me/mosaic-presets`; GET/POST `/api/me/mosaics`;
+PUT `/api/me/mosaics/{id}`; POST `/api/me/mosaics/{id}/activate`;
+public profile DTO and GET `/api/profiles/{username}/albums/{album_id}`.
+
+**Implementation:** `frontend/src/components/mosaic-editor.tsx`,
+`mosaic-canvas.tsx`, `mosaic-albums.ts`, `public-mosaic.tsx`,
+`frontend/src/app/builder/page.tsx`; `backend/app/api/routes/mosaics.py`,
+`profiles.py`, `app/api/dependencies.py`, `app/services/mosaic.py`,
+`app/schemas/mosaic.py`, `app/repositories/mosaics.py`, `app/models/mosaic.py`.
+
+**Backend/data:** one design per profile (unique FK), stored as dimensions,
+preset key, ordered JSONB tiles, and an activation flag. Coordinate presets are
+Heart, Star, Music note, and Blank / custom. Preset expansion repeats the owner's
+Featured Album IDs to fill the shape; an empty selection produces an empty design.
+Complete-layout PUTs allow 0-100 tiles in a 1-12 by 1-12 grid, reject duplicate
+coordinates, out-of-bounds/noninteger coordinates, invalid IDs/extra fields, and
+any album outside the owner's current Featured Albums. Multiple cells may use
+the same album. Identity comes from the session; foreign mosaic IDs return 404.
+Writes lock relevant records and flush in a caller-owned transaction. No artwork
+or Spotify metadata is persisted. Removing a Featured Album prunes its tiles atomically.
+
+**Frontend:** a 9x9 grid scales with CSS Grid. Apply a preset with one click;
+choose a tray album then click a cell, or Tab and Enter/Space. Erase tiles clears
+cells; Undo retains up to 50 edits; Reset restores the last save; Save persists
+the full draft. Failed saves retain drafts. Controls are disabled during writes.
+Set Active requires a saved, clean draft and does not change profile visibility.
+Subsequent saves update the active design. Navigation/refresh loses unsaved work.
+The album picker and builder are separate screens; return to the builder after
+saving a new working set. Album artwork/details load sequentially per unique ID
+with timeout/cancellation/retry and a placeholder when an album is unavailable.
+
+**Public view:** uncached profile reads embed only an active design's dimensions,
+preset, coordinates, and used album IDs; private/missing profiles remain identical
+404s. The read-only canvas shows no placement/save/activation controls. Tiles open
+the existing album detail dialog with a Spotify link, or link directly to Spotify
+while details are unavailable. Separate detail reads verify public visibility,
+activation, and tile membership before resolving normalized metadata server-side.
+Spotify outages do not prevent profile/layout reads. Tokens never reach browser DTOs.
+
+**Tests:** `backend/tests/test_mosaics.py` covers all presets, validation,
+save/reload/order/repeated albums, activation, anonymous public layout/details,
+visibility withdrawal, owner/session enforcement, safe upstream failures, removal
+rollback/pruning, layout rollback, unique profile constraint, and cascade deletion.
+Frontend behavior is covered by the browser acceptance record; compile checks
+remain ESLint/TypeScript/build.
+
+**Verification:** run the standard verifier and follow
+[Phase 5 acceptance verification](phase-5-verification.md). The 2026-10-05 record
+uses disposable PostgreSQL and synthetic Spotify responses; live OAuth/catalog
+acceptance remains outstanding.
+
 ## Local persistence and fixture tools
 
 **User purpose:** prepare a repeatable local database for development and diagnose
@@ -207,7 +267,7 @@ connectivity; these are developer commands, not browser features.
 **Implementation:** `compose.yaml`, `backend/migrations/`, `backend/app/db/seed.py`,
 `backend/app/db/check.py`, `backend/app/services/accounts.py`, repositories/models.
 
-**Backend/data:** configured PostgreSQL and four tables. Seed creates
+**Backend/data:** configured PostgreSQL and five tables. Seed creates
 `mosaic_local_test` / `Local Test User` for `mosaic-local-test-user`, preserves
 existing edits, and creates neither Spotify connection nor login session.
 

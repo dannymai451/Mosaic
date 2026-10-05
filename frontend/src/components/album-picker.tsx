@@ -173,7 +173,7 @@ export function AlbumPicker() {
     <div className="mt-8 space-y-8">
       <section aria-labelledby="featured-heading" className="rounded-2xl border border-zinc-800 bg-zinc-900 p-5 sm:p-8">
         <h2 id="featured-heading" className="text-xl font-semibold">Featured Albums <span className="text-sm font-normal text-zinc-400">{selected.length}/100</span></h2>
-        <p className="mt-2 text-sm leading-6 text-zinc-400">Choose the albums for your future mosaic, then save. Unsaved changes are lost when you leave or refresh.</p>
+        <p className="mt-2 text-sm leading-6 text-zinc-400">Choose the albums for your mosaic, then save. Removing a saved album also removes its mosaic tiles. Unsaved changes are lost when you leave or refresh.</p>
         {!selectionReady && !selectionError && <p role="status" className="mt-4">Loading your selection...</p>}
         {selectionError && <p role="alert" className="mt-4 text-red-300">{selectionError.message}</p>}
         {selectionReady && selected.length === 0 && <p className="mt-4 text-sm text-zinc-400">No Featured Albums yet. Add one from your saved library below.</p>}
@@ -198,14 +198,14 @@ export function AlbumPicker() {
         <h2 id="library-heading" className="text-xl font-semibold">Your saved Spotify albums</h2>
         <p className="mt-2 text-sm text-zinc-400">{libraryReady ? `${albums.length} albums loaded of ${total}.` : "Albums you have saved in Spotify will appear here."}</p>
         {libraryReady && total === 0 && <p className="mt-5 text-zinc-300">Your saved album library is empty. Save an album in Spotify, then reload this page.</p>}
-        <ul className="mt-6 grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
+        <ul className="mt-6 grid auto-rows-fr grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
           {albums.map((album) => (
             <li key={album.id} className="flex min-w-0 flex-col rounded-xl border border-zinc-800 bg-zinc-900 p-3">
-              <button type="button" onClick={() => setDetail(album)} aria-label={`Details for ${album.name}`} className="block w-full focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-green-400">
+              <button type="button" onClick={() => setDetail(album)} aria-label={`Details for ${album.name}`} className="block w-full shrink-0 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-green-400">
                 {album.imageUrl ? <Image src={album.imageUrl} alt={`Cover of ${album.name}`} width={300} height={300} unoptimized className="aspect-square w-full object-contain" /> : <span className="flex aspect-square items-center justify-center bg-zinc-800 text-sm text-zinc-400">No artwork</span>}
               </button>
-              <h3 className="mt-3 break-words text-sm font-semibold">{album.name}</h3>
-              <p className="mt-1 break-words text-xs text-zinc-400">{album.artists.join(", ") || "Unknown artist"}</p>
+              <h3 title={album.name} className="mt-3 min-h-10 line-clamp-2 break-words text-sm font-semibold leading-5">{album.name}</h3>
+              <p title={album.artists.join(", ") || "Unknown artist"} className="mt-1 min-h-8 line-clamp-2 break-words text-xs leading-4 text-zinc-400">{album.artists.join(", ") || "Unknown artist"}</p>
               <div className="mt-auto pt-2">
                 <a href={album.spotifyUrl} target="_blank" rel="noopener noreferrer" className="inline-flex min-h-11 items-center text-xs text-green-400 underline focus-visible:outline-2 focus-visible:outline-green-400">Open in Spotify</a>
                 <button type="button" aria-pressed={selected.includes(album.id)} aria-label={`${selected.includes(album.id) ? "Remove" : "Add"} ${album.name}`} disabled={!selectionReady || saving || (!selected.includes(album.id) && selected.length >= 100)} onClick={() => toggle(album.id)} className={`${buttonClass} mt-2 w-full whitespace-nowrap max-sm:px-2 ${selected.includes(album.id) ? "border-green-400 text-green-300" : ""}`}>{selected.includes(album.id) ? "Selected" : "Add album"}</button>

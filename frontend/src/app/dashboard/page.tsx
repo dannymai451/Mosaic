@@ -180,6 +180,7 @@ export default function DashboardPage() {
             >
               Choose albums
             </Link>
+            <Link href="/builder" className="mt-4 ml-3 inline-flex min-h-11 items-center rounded-full border border-green-500 px-5 text-sm font-semibold text-green-300 hover:border-green-400 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-green-400">Build mosaic</Link>
           </div>
         </div>
       </div>

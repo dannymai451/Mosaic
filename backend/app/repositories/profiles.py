@@ -12,6 +12,15 @@ async def get_by_user_id(db: AsyncSession, user_id: UUID) -> Profile | None:
     return await db.scalar(select(Profile).where(Profile.user_id == user_id))
 
 
+async def get_for_update(db: AsyncSession, user_id: UUID) -> Profile | None:
+    return await db.scalar(
+        select(Profile)
+        .where(Profile.user_id == user_id)
+        .with_for_update()
+        .execution_options(populate_existing=True)
+    )
+
+
 async def get_by_username(db: AsyncSession, username: str) -> Profile | None:
     return await db.scalar(select(Profile).where(Profile.username == username))
 

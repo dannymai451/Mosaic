@@ -1,72 +1,15 @@
 """Owner library browsing and persistent Featured Album selection."""
 
-from contextlib import asynccontextmanager
 from typing import Annotated
 
-import httpx
-from fastapi import APIRouter, Cookie, Depends, HTTPException, Path, Query, Response
-from sqlalchemy.ext.asyncio import AsyncSession
+from fastapi import APIRouter, HTTPException, Path, Query
 
-from app.db.session import get_db
-from app.models import Profile
-from app.repositories import profiles, sessions, spotify_connections
+from app.api.dependencies import Database, Owner, spotify_for_owner
+from app.repositories import mosaics, profiles
 from app.schemas.album import Album, AlbumPage, FeaturedAlbums, FeaturedAlbumsPut
-from app.services.spotify import (
-    LIBRARY_SCOPE,
-    SpotifyClient,
-    SpotifyError,
-    normalize_album,
-)
+from app.services.spotify import normalize_album
 
 router = APIRouter(prefix="/api/me", tags=["albums"])
-Database = Annotated[AsyncSession, Depends(get_db)]
-
-
-async def owner_profile(
-    db: Database,
-    response: Response,
-    mosaic_session: str | None = Cookie(default=None),
-) -> Profile:
-    response.headers["Cache-Control"] = "no-store"
-    async with db.begin():
-        active = (
-            await sessions.get_active(db, mosaic_session) if mosaic_session else None
-        )
-        if active is None:
-            raise HTTPException(
-                401, "Authentication required", headers={"Cache-Control": "no-store"}
-            )
-        profile = await profiles.get_by_user_id(db, active.user_id)
-        if profile is None:
-            raise HTTPException(
-                404, "Profile not found", headers={"Cache-Control": "no-store"}
-            )
-    return profile
-
-
-Owner = Annotated[Profile, Depends(owner_profile)]
-
-
-@asynccontextmanager
-async def spotify_for_owner(db: AsyncSession, profile: Profile):
-    try:
-        async with httpx.AsyncClient(timeout=10.0) as http:
-            # Serialize refresh-token rotation across requests for this account.
-            async with db.begin():
-                connection = await spotify_connections.get_for_update(
-                    db, profile.user_id
-                )
-                if connection is None or LIBRARY_SCOPE not in connection.scopes.split():
-                    raise SpotifyError(403, "spotify_reconnect_required")
-                spotify = SpotifyClient(http, db, connection)
-                await spotify.refresh()
-            # Commit rotated tokens before a library read that may fail.
-            yield spotify
-    except SpotifyError as exc:
-        headers = {"Cache-Control": "no-store"}
-        if exc.retry_after is not None:
-            headers["Retry-After"] = exc.retry_after
-        raise HTTPException(exc.status, exc.code, headers=headers) from exc
 
 
 @router.get("/albums", response_model=AlbumPage)
@@ -110,5 +53,9 @@ async def save_featured_albums(patch: FeaturedAlbumsPut, db: Database, profile: 
         async with spotify_for_owner(db, profile) as spotify:
             await spotify.require_saved(added)
     async with db.begin():
+        profile = await profiles.get_for_update(db, profile.user_id)
         await profiles.set_featured_albums(db, profile, patch.album_ids)
+        mosaic = await mosaics.get_for_update(db, profile.id)
+        if mosaic is not None:
+            await mosaics.retain_featured_albums(db, mosaic, patch.album_ids)
     return FeaturedAlbums(albumIds=profile.featured_album_ids)

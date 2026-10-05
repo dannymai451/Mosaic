@@ -37,12 +37,15 @@ Session digests belong in `repositories/sessions.py`; encrypt refresh tokens in
 the service before persistence. Owner responses must not contain Spotify tokens.
 Use explicit HTTP status errors, OAuth error redirects, and frontend status-aware
 fetch handling. The settings loading effect is the preferred abort/retry example.
-For Spotify library integration, copy `api/routes/albums.py` and
-`services/spotify.py`: normalize provider payloads, keep access tokens server-side,
+For Spotify integration, copy `api/routes/albums.py`, the shared owner/Spotify
+dependencies in `api/dependencies.py`, and `services/spotify.py`: normalize provider payloads, keep access tokens server-side,
 commit encrypted refresh-token rotation before subsequent reads, and return safe
 error codes. `/me/library/contains` replaces the deprecated album-specific
-membership endpoint. Avoid copying the inactive health router or empty mosaic
-service as implemented infrastructure; see ARCHITECTURE's debt section.
+membership endpoint. Mosaic presets are coordinate maps in `services/mosaic.py`;
+owner writes in `api/routes/mosaics.py` lock the profile before the mosaic and
+replace the validated complete tile list in one transaction. Copy that lock order
+for changes that touch both the selection and layout. Avoid copying the inactive
+health router as implemented infrastructure; see ARCHITECTURE's debt section.
 
 ## Configuration and generated files
 

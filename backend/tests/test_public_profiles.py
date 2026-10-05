@@ -33,6 +33,7 @@ def test_public_profile_requires_saved_public_visibility(database_client):
         "images": [],
         "bio": "Public music bio",
         "theme": {"preset": "paper"},
+        "mosaic": None,
     }
     assert client.get("/api/me").status_code == 401
 

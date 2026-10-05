@@ -7,6 +7,7 @@ from app.api.routes.auth import (
     me_router,
     spotify_router,
 )
+from app.api.routes.mosaics import router as mosaics_router
 from app.api.routes.profiles import public_router
 from app.api.routes.profiles import router as profiles_router
 
@@ -34,6 +35,7 @@ app.include_router(me_router)
 app.include_router(profiles_router)
 app.include_router(public_router)
 app.include_router(albums_router)
+app.include_router(mosaics_router)
 
 
 @app.get("/api/health")

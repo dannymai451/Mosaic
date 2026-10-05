@@ -1,4 +1,5 @@
 import Image from "next/image";
+import type { MosaicLayout } from "@/components/mosaic-canvas";
 
 export const THEMES = {
   midnight: { label: "Midnight", card: "bg-zinc-900 text-white", accent: "text-green-400", swatch: "bg-zinc-950" },
@@ -13,6 +14,7 @@ export type PublicProfile = {
   bio: string;
   theme: { preset?: string };
   images: { url: string }[];
+  mosaic?: MosaicLayout | null;
 };
 
 export function themePreset(preset?: string): Theme {

@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ProfileCard, type PublicProfile } from "@/components/profile-card";
 import { ShareProfile } from "@/components/share-profile";
+import { PublicMosaic } from "@/components/public-mosaic";
 
 const API_BASE_URL =
   process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://127.0.0.1:8000";
@@ -38,7 +39,7 @@ export default async function SharedProfilePage({ params }: {
       <div className="mx-auto max-w-xl px-4 py-8 sm:px-6 sm:py-12">
         <Link href="/" className="inline-flex min-h-11 items-center text-sm font-semibold uppercase tracking-[0.25em] text-green-400 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-green-400">Mosaic</Link>
         <h1 className="mt-5 text-xl font-semibold">Music profile</h1>
-        {profile ? <div className="mt-6 space-y-6"><ProfileCard profile={profile} /><ShareProfile username={profile.username} /></div> : (
+        {profile ? <div className="mt-6 space-y-6"><ProfileCard profile={profile} />{profile.mosaic && <PublicMosaic layout={profile.mosaic} username={profile.username} />}<ShareProfile username={profile.username} /></div> : (
           <div className="mt-6 rounded-2xl border border-zinc-800 p-6">
             <p role="alert">Could not load this profile. Please try again.</p>
             <a href={`/${handle}`} className="mt-4 inline-flex min-h-11 items-center text-green-400 underline">Try again</a>

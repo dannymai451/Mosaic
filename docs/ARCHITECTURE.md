@@ -5,9 +5,11 @@
 Mosaic is an early music-profile application. Implemented product behavior is
 Spotify sign-in, persistent owner sessions, an owner dashboard, profile previews,
 profile saving, read-only public profile sharing, saved Spotify album browsing,
-and persistent owner Featured Album selection. Mosaic generation is not implemented.
-`services/spotify.py` implements token refresh and library reads;
-`services/mosaic.py` remains a placeholder. The project-plan PDF describes the roadmap.
+and persistent owner Featured Album selection, a mosaic editor with four coordinate
+presets, atomic layout saves, and public active mosaics. `services/spotify.py`
+implements token refresh/library/catalog reads; `services/mosaic.py` implements
+preset expansion and album placement validation. The project-plan PDF describes
+the roadmap; this MVP supports one saved mosaic per profile.
 
 - `frontend/`: Next.js 16.3.8 App Router, React 19.2.8, TypeScript with strict
   checking, Tailwind CSS 4. npm and `package-lock.json` pin the installed graph.
@@ -24,9 +26,9 @@ and persistent owner Featured Album selection. Mosaic generation is not implemen
 | `frontend/src/styles/tokens.css` | Tailwind theme tokens; pages currently also use hardcoded utility colors. |
 | `backend/app/main.py` | FastAPI creation, router registration, CORS, active health endpoint. |
 | `backend/app/api/routes/` | HTTP/authentication orchestration, owner updates, and public profile reads. |
-| `backend/app/services/` | Account/login transactions and Spotify refresh/library integration; mosaic placeholder. |
+| `backend/app/services/` | Account/login transactions, Spotify refresh/library integration, mosaic preset expansion and validation. |
 | `backend/app/repositories/` | Async persistence functions accepting a caller-provided session. |
-| `backend/app/models/` | Four SQLAlchemy models; `__init__.py` registers them together. |
+| `backend/app/models/` | Five SQLAlchemy models; `__init__.py` registers them together. |
 | `backend/app/schemas/` | Profile PATCH validation and normalized album/selection contracts. |
 | `backend/app/db/` | Declarative base, engine/session dependency, local seed and connectivity commands. |
 | `backend/app/core/config.py` | Application environment settings instantiated at import. |
@@ -87,6 +89,12 @@ library. Settings keeps separate saved, draft, and preview states; refresh/navig
 loses unsaved changes. Saves send changed fields only and retain drafts on failure.
 Public reads use a server page and uncached API fetch, with a small client sharing
 component. The shared card/theme presets also supply the settings preview.
+The builder uses the same saved/draft pattern, with up to 50 local undo snapshots,
+click/keyboard placement, and server-supplied preset coordinates. One shared CSS
+Grid canvas renders both editable and public layouts from device-independent
+coordinates. Public canvases expose only album detail/Spotify links. Album metadata
+loads sequentially per unique ID and remains ephemeral; failure stops further reads
+and exposes retry while preserving the saved layout.
 Connect reads the `error` URL query with Next's
 `useSearchParams` behind a Suspense boundary. Dashboard
 loads `/api/me`, displays errors, and POSTs logout before returning home.
@@ -106,7 +114,8 @@ pages, retains drafts when saves or library reads fail, and resolves off-page
 selected album details on demand. Native dialog semantics provide focus trapping
 and Escape dismissal. Retrying library reads does not replace a pending selection.
 
-Album routes derive the owner from the session. Their Spotify context owns a short
+Album/mosaic routes share session-derived owner identity in `api/dependencies.py`.
+The shared Spotify context owns a short
 transaction to lock the connection, refresh access, and persist encrypted rotated
 refresh tokens before making library requests. A Spotify 401 gets one refresh/retry;
 429 returns immediately with a sanitized Retry-After header exposed through CORS.
@@ -121,7 +130,18 @@ private/public visibility, mutable JSONB theme, and an ordered JSONB
 with up to 100 unique IDs allowed by the owner API; catalog metadata is not stored.
 Newly added IDs are checked against Spotify's `/me/library/contains` in batches of
 40 URIs; existing selections can be retained/removed after being unsaved in Spotify.
-Foreign keys cascade deletes.
+`mosaics` has a UUID, unique profile FK, preset key, bounded width/height, a complete
+JSONB tile list, and an activation flag. Each tile stores only a Spotify album ID
+and integer x/y. One JSONB replacement saves the complete layout in a caller-owned
+transaction; separate tile rows and multiple designs are unnecessary for this MVP.
+Profile row locks serialize creation, layout saves, and selection updates; saves
+also lock the mosaic and verify every tile against the current Featured Album IDs.
+Featured Album removal prunes affected tiles within the selection transaction.
+Set Active only changes the mosaic flag; profile visibility still gates public
+reads. Later owner saves update the active design. Public DTOs omit mosaic/internal
+IDs; a separate public album endpoint checks public visibility, activation, and
+tile membership before using the owner's server-side Spotify connection. This keeps
+the public profile/layout readable during Spotify outages. Foreign keys cascade deletes.
 Alembic is the schema authority; changing a model requires a reviewed migration.
 
 Root `.env` configures Compose. Backend commands run from `backend/` so application
