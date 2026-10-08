@@ -31,7 +31,7 @@ SPOTIFY_AUTHORIZE_URL = "https://accounts.spotify.com/authorize"
 SPOTIFY_TOKEN_URL = "https://accounts.spotify.com/api/token"
 SPOTIFY_ME_URL = "https://api.spotify.com/v1/me"
 
-SCOPES = ["user-read-private", "user-library-read"]
+SCOPES = ["user-read-private", "user-library-read", "user-top-read"]
 
 
 def redirect_to_connect(error: str) -> RedirectResponse:

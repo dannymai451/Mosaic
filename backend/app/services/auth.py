@@ -8,9 +8,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
 from app.repositories import profiles, sessions, spotify_connections, users
+from app.services import spotify_cache
 
 
 async def persist_login(db: AsyncSession, profile: dict, tokens: dict) -> str:
+    issued_at = spotify_cache.monotonic()
     account_id = profile.get("account_id")
     if not isinstance(account_id, str) or not account_id:
         raise ValueError("spotify_profile_failed")
@@ -24,7 +26,7 @@ async def persist_login(db: AsyncSession, profile: dict, tokens: dict) -> str:
         refresh_token = tokens.get("refresh_token")
         if not refresh_token and connection is None:
             raise ValueError("missing_refresh_token")
-        await spotify_connections.upsert(
+        connection = await spotify_connections.upsert(
             db,
             user_id=user.id,
             encrypted_refresh_token=(
@@ -49,5 +51,14 @@ async def persist_login(db: AsyncSession, profile: dict, tokens: dict) -> str:
             token=session_token,
             user_id=user.id,
             expires_at=datetime.now(UTC) + timedelta(hours=1),
+        )
+    # Seed reuse only after the login transaction commits. Tokens stay server-side.
+    key = spotify_cache.connection_key(connection)
+    spotify_cache.access_tokens.discard(key)
+    access_token = tokens.get("access_token")
+    if isinstance(access_token, str) and access_token:
+        spotify_cache.access_tokens.put(
+            key, access_token,
+            spotify_cache.token_deadline(tokens.get("expires_in"), issued_at),
         )
     return session_token

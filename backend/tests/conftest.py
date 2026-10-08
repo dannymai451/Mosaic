@@ -24,6 +24,17 @@ os.environ.setdefault(
 os.environ.setdefault("TOKEN_ENCRYPTION_KEY", Fernet.generate_key().decode())
 
 
+@pytest.fixture(autouse=True)
+def isolated_spotify_caches():
+    from app.services import spotify_cache
+
+    spotify_cache.access_tokens.clear()
+    spotify_cache.monthly_metadata.clear()
+    yield
+    spotify_cache.access_tokens.clear()
+    spotify_cache.monthly_metadata.clear()
+
+
 @pytest.fixture(scope="session")
 def migrated_database_url():
     source = os.environ.get("TEST_DATABASE_URL")

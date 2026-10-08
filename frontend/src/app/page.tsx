@@ -13,14 +13,15 @@ export default function Home() {
           <h1 className="text-5xl font-bold tracking-tight">
             Your music,
             <br />
-            arranged by you.
+            a month in art.
           </h1>
         </div>
 
         <p className="text-lg text-zinc-400">
-          Connect your Spotify account and build a visual profile from the
-          albums that matter to you.
+          Turn your recent listening into album-cover art. Save one mosaic each
+          month and revisit your music, month by month.
         </p>
+        <p className="text-sm leading-6 text-zinc-500">Based on your Spotify top tracks from roughly the last four weeks. Your monthly collection stays private.</p>
 
         <a
           href={`${API_BASE_URL}/api/auth/spotify/start`}

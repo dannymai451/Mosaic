@@ -1,11 +1,99 @@
 # Feature map
 
-This map describes implemented behavior, not the project-plan PDF's roadmap.
+This map describes implemented behavior, not the project-plan PDF's previous
+roadmap. Monthly listening artwork is the primary product; manual editing and
+public profiles below remain legacy features.
 Use [README](../README.md) to start PostgreSQL, migrate, and run both servers.
 Use `http://127.0.0.1:3000` for browser checks. The standard automated command is
 `uv run --project backend --locked python scripts/verify.py` from the repo root.
 Automated Spotify calls are mocked; a live sign-in requires developer-app settings,
 an encryption key, and an allowlisted Spotify account.
+
+## Monthly listening artwork and private archive
+
+**User purpose:** generate a personal monthly music snapshot, revisit saved months,
+and preview the associated song before opening it on Spotify.
+
+**Entry points:** landing Spotify connection, dashboard's Monthly artwork link,
+`/monthly`; GET/POST `/api/me/monthly-mosaics`;
+GET `/api/me/monthly-mosaics/{id}/albums/{album_id}`.
+
+**Implementation:** `frontend/src/app/monthly/page.tsx`, the shared
+`mosaic-canvas.tsx`, `album-detail.tsx`, and scoped `monthly-artwork.ts` loader;
+backend monthly routes, service, schema,
+repository/model, migration, and `services/spotify.py` (top-track integration).
+
+**Backend/data:** authenticated owner-only archive; current month is determined
+server-side in UTC. Spotify `user-top-read` consent is required for new generation
+and catalog resolution, but no saved/Featured Albums are required. Up to 50
+short-term top tracks represent approximately the preceding four weeks; this is
+not an exact calendar-month log or play-count report. Tracks group into albums,
+ranked by represented track count then earliest track rank. The deterministic
+monthly Heart/Star/Music note preset is shared across accounts, with a Pumpkin
+override for new October snapshots. The pumpkin uses a 12x12 jack-o'-lantern
+with a bent stem, triangular eye openings, and a toothy
+grin. Pumpkin covers use tighter two-pixel spacing. Selected albums
+are capped to shape capacity and repeat across cells.
+
+One immutable snapshot per profile/month is saved atomically; repeat generation
+returns the existing snapshot before any Spotify request. A uniqueness constraint
+and profile lock prevent duplicate concurrent writes. Previous months remain
+unchanged, and clients cannot backdate generation. Empty usable data/provider
+failures save nothing. Only IDs, coordinates, dimensions/preset, month, creation
+time, source track count, each selected album's highest-ranked song ID, and new
+tiles' song IDs persist. Repeated covers cycle original ranked songs within that
+album. Older layouts keep their original representative-song fallback.
+Existing snapshots have no retroactively inferred songs. A one-time data correction
+changes pre-feature October 2026 hearts to pumpkins using only their saved album
+order; it preserves record identity, listening data, song IDs, and creation time.
+Other months retain their original layouts. Subsequent generation remains immutable.
+A follow-up correction refines 9x9 October 2026 pumpkins by repeating their saved
+tile payloads into the new shape; every existing album/song pair, representative
+mapping, and generation timestamp is preserved without contacting Spotify.
+Artwork/catalog metadata are resolved on
+demand; successful song lookups include album covers and avoid separate album
+requests. Missing/unavailable songs use an album fallback; song rate limits
+propagate Retry-After and stop artwork loading. Credentials never appear in
+responses. Detail reads verify owner and tile
+membership; optional `track_id` must match that album on a saved tile. Monthly history stays private even when a legacy profile is public;
+Featured Album removal does not modify snapshots.
+
+Fresh generation returns a transient `artwork` map and expiry from the same
+top-tracks response, so initial display needs no per-song detail reads. A valid
+cached access token makes generation one Spotify request; a cold token makes it
+two, excluding image downloads and retries. The server caches verified monthly
+metadata for five minutes; warm detail reads make no Spotify calls while still
+checking session, ownership, membership, and scope. Cache misses resolve the
+original saved songs. Caches are bounded, per process, and cleared on restart.
+
+**Frontend:** explicit Generate action saves immediately; opening the page writes
+nothing. Current saved artwork and month navigation appear in the private archive.
+Generation shows an indeterminate bar during the save, then measured album/image
+loading progress; the complete canvas appears after all covers finish or reach a
+bounded failure fallback. Saved artwork uses the same loading path. Every tile
+opens a compact native dialog with the song title as its heading, the artist, a
+single Spotify song action. The song response also supplies its album cover.
+The plain X has an accessible Close details label; Escape and focus restoration
+remain available. Dates and track counts are omitted. Scrollbar chrome is hidden
+and background scrolling is locked, while overflow content remains reachable.
+Tiles show cover artwork without visible title captions; accessible names/tooltips
+identify each tile's resolved song. Older artwork uses its saved representative
+song, or a short missing-song explanation and album action when no song was saved.
+Failed metadata or images leave usable placeholders and retry; older snapshots show album details.
+The page explains the approximate four-week source and handles empty,
+loading, expired-session, reconnect, provider-error, and rate-limit states.
+
+**Tests:** `backend/tests/test_monthly_mosaics.py` exercises period parameters,
+album grouping, per-tile songs and cross-album membership, representative songs/relinking, seasonal presets, persistence/month
+rollover, repeat/concurrent generation, ownership/privacy, empty data, safe provider
+failures, and constraints. `test_monthly_migration.py` verifies that the new song-ID
+column backfills older records without changing their archived layout.
+Frontend behavior is verified in the browser; lint/types/build remain standard.
+
+**Verification:** run full verification and follow
+[monthly acceptance](monthly-mosaics-verification.md). Synthetic checks establish
+application behavior; live OAuth/reconnect/top-track/catalog acceptance remains
+dependent on the Spotify developer-app setup.
 
 ## Spotify connection and sign-in recovery
 
@@ -60,7 +148,7 @@ confirm reconnect/retry controls. Backend tests cover expiry without waiting.
 **User purpose:** preview username, display name, bio, visibility, and one of three
 themes, then save those edits to the owner profile.
 
-**Entry points:** dashboard's Edit profile link; `/settings/profile`.
+**Entry points:** dashboard's Account settings link; `/settings/profile`.
 
 **Implementation:** `frontend/src/app/settings/profile/page.tsx` (`ProfileForm`,
 loader, validation and saved/draft/preview state),
@@ -158,7 +246,7 @@ are also withdrawn when the profile becomes private.
 **User purpose:** browse the connected Spotify library and save the working set
 of albums to use in the mosaic builder.
 
-**Entry points:** dashboard's Choose albums link; `/settings/albums`;
+**Entry points:** legacy `/settings/albums`;
 GET `/api/me/albums?limit=20&offset=0`; GET/PUT `/api/me/featured-albums`;
 GET `/api/me/albums/{album_id}` for on-demand saved-selection details.
 
@@ -170,7 +258,7 @@ GET `/api/me/albums/{album_id}` for on-demand saved-selection details.
 `user-library-read`, so existing connections need reauthorization. Saved-album
 pages return an allowlisted album DTO plus total/nextOffset, never Spotify tokens,
 raw provider pagination URLs, tracks, or connection data. Refresh tokens stay
-encrypted; access is refreshed server-side per request, with one bounded retry
+encrypted; valid access tokens are reused server-side until shortly before expiry, with one bounded retry
 after an upstream 401 and immediate safe errors for 403/429/network failures.
 
 PUT accepts `album_ids` (0-100 unique 22-character Spotify IDs), rejects extra
@@ -203,7 +291,7 @@ Mocked checks establish application behavior, not live Spotify compatibility.
 **User purpose:** arrange Featured Album covers into a preset/custom shape, save
 the exact layout, and show the active mosaic on a public profile.
 
-**Entry points:** dashboard's Build mosaic link; album settings' Build your mosaic;
+**Entry points:** legacy album settings' Build your mosaic;
 `/builder`; GET `/api/me/mosaic-presets`; GET/POST `/api/me/mosaics`;
 PUT `/api/me/mosaics/{id}`; POST `/api/me/mosaics/{id}/activate`;
 public profile DTO and GET `/api/profiles/{username}/albums/{album_id}`.
@@ -267,7 +355,7 @@ connectivity; these are developer commands, not browser features.
 **Implementation:** `compose.yaml`, `backend/migrations/`, `backend/app/db/seed.py`,
 `backend/app/db/check.py`, `backend/app/services/accounts.py`, repositories/models.
 
-**Backend/data:** configured PostgreSQL and five tables. Seed creates
+**Backend/data:** configured PostgreSQL and six tables. Seed creates
 `mosaic_local_test` / `Local Test User` for `mosaic-local-test-user`, preserves
 existing edits, and creates neither Spotify connection nor login session.
 

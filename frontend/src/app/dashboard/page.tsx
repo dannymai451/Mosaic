@@ -172,17 +172,20 @@ export default function DashboardPage() {
               href="/settings/profile"
               className="mt-4 inline-flex min-h-11 items-center rounded-full border border-zinc-600 px-5 text-sm font-semibold hover:border-green-400 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-green-400"
             >
-              Edit profile
+              Account settings
             </Link>
             <Link
-              href="/settings/albums"
-              className="mt-4 ml-3 inline-flex min-h-11 items-center rounded-full border border-zinc-600 px-5 text-sm font-semibold hover:border-green-400 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-green-400"
+              href="/monthly"
+              className="mt-4 sm:ml-3 inline-flex min-h-11 items-center rounded-full bg-green-500 px-5 text-sm font-semibold text-black hover:bg-green-400 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-green-400"
             >
-              Choose albums
+              Your monthly mosaics
             </Link>
-            <Link href="/builder" className="mt-4 ml-3 inline-flex min-h-11 items-center rounded-full border border-green-500 px-5 text-sm font-semibold text-green-300 hover:border-green-400 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-green-400">Build mosaic</Link>
           </div>
         </div>
+        <section className="mt-6 rounded-2xl border border-zinc-800 p-6">
+          <h2 className="text-2xl font-semibold">A keepsake for your recent listening</h2>
+          <p className="mt-3 max-w-2xl leading-7 text-zinc-400">Each month, generate an artwork using albums from your Spotify top tracks over roughly the last four weeks. Everyone gets the same monthly shape, filled with their own music. Saved months stay in your private collection. Tap any cover to preview its album and a song, with links to Spotify.</p>
+        </section>
       </div>
     </main>
   );

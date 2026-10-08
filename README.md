@@ -1,6 +1,17 @@
 # Mosaic
 
-Showcase your taste through Mosaic!
+Your music, a month in art. Generate a personal album-cover mosaic from recent
+Spotify listening and keep a private collection of saved months.
+
+Artwork appears once its covers are ready, with progress while it loads. New
+October artwork uses a pumpkin shape. Tap a tile to preview its associated song
+and open the song on Spotify.
+
+The current product scope is monthly listening snapshots, with no followers or
+feed. The existing manual builder and public profiles remain available as legacy
+features. The monthly workflow and stack decisions are documented in
+[monthly mosaics](docs/monthly-mosaics-verification.md); the project-plan PDF and
+earlier phase records describe the previous roadmap.
 
 ## Repository layout
 
@@ -116,7 +127,8 @@ uv run ruff check .
 ## Database migrations
 
 Alembic manages the PostgreSQL schema for `users`, `spotify_connections`,
-`sessions`, `profiles`, and `mosaics`. Start the local database, then from `backend/`:
+`sessions`, `profiles`, `mosaics`, and `monthly_mosaics`. Start the local database,
+then from `backend/`:
 
 ```bash
 cp -n .env.example .env
@@ -140,6 +152,56 @@ uv run alembic check
 upgrade SQL without connecting, run `uv run alembic upgrade head --sql`.
 To roll back the most recent migration, run `uv run alembic downgrade -1`;
 rolling back the initial migration drops all four tables and their data.
+
+## Monthly listening artwork and archive
+
+Apply migrations and restart the API. Reconnect Spotify once to grant
+`user-top-read`, then open **Monthly artwork** on the dashboard or `/monthly`.
+Generate the current month's mosaic; it is saved automatically in your private
+archive. A loading bar stays visible until cover preparation finishes. Tap a tile
+to preview its saved song, then open it in Spotify.
+Tiles show only cover artwork. The compact popup leads with the song title and
+artist and an Open song in Spotify link. A successful song lookup supplies its
+album cover too, avoiding a separate album request. Older artwork without saved
+songs, and unavailable-song fallbacks, still provide an album action.
+A plain X closes it; release dates and track counts are omitted. New artwork
+assigns songs per tile, so repeated covers can show different songs from the same
+album. Previously saved artwork retains its representative song per album.
+You can select earlier saved months to revisit them.
+
+Artwork uses up to 50 short-term top tracks, grouped by album. This represents
+approximately the last four weeks when generated, not exact calendar-month play
+counts. Everyone uses the same rotating preset for a given month, with a Pumpkin
+for October artwork. The 12x12 jack-o'-lantern has a bent stem, symmetric body,
+triangular eye openings, and a toothy grin, with tighter spacing between covers.
+A one-time migration corrects October 2026 hearts saved
+before the pumpkin feature, preserving their listening selection and saved date.
+A follow-up migration refines existing 9x9 October 2026 pumpkins, repeating their
+original saved tiles while preserving every album/song pair and saved date.
+Other saved months remain unchanged. Months use UTC;
+one snapshot is saved per account/month, and repeat generation returns that
+snapshot rather than replacing it. Historical months cannot be generated later.
+There is no automatic background generation.
+
+GET `/api/me/monthly-mosaics` returns the current month and the owner's archive;
+POST to the same endpoint with `{}` generates or returns the current snapshot.
+Fresh generation includes transient song/cover metadata from that same Spotify
+top-tracks response. Normal generation and initial display use two Spotify
+requests with a cold access token, or one with a valid cached token, plus browser
+image downloads. Valid access tokens are reused server-side; verified song
+metadata is cached for five minutes. Reopening warm artwork makes no Spotify
+API requests. Caches are bounded and clear on API restart; saved IDs/layouts stay
+in PostgreSQL. Expired/missing metadata is resolved using those saved song IDs.
+GET `/api/me/monthly-mosaics/{id}/albums/{album_id}` resolves only albums used in
+that owner's snapshot, including verified song details when available.
+An optional `track_id` query selects a song saved on a tile for that exact album.
+Album IDs, tile song IDs, representative song IDs, and layouts are persisted; catalog metadata and
+artwork remain transient, and Spotify tokens stay server-side. Archive layouts
+remain readable during provider failures. Making a legacy profile public does
+not expose monthly artwork.
+
+See [monthly acceptance verification](docs/monthly-mosaics-verification.md) for
+design decisions, test coverage, browser checks, and live-provider limitations.
 
 ## Phase 2 persistence and local fixture
 
@@ -189,7 +251,7 @@ and seed idempotency. The existing health and OAuth tests also run. See
 [Phase 2 acceptance verification](docs/phase-2-verification.md) for setup and the
 manual browser checklist.
 
-## Phase 3 profile editing and sharing
+## Legacy Phase 3 profile editing and sharing
 
 Open `/settings/profile` while signed in to preview and save username, display
 name, bio, visibility, and theme. Save as public to enable View public profile,
@@ -198,14 +260,14 @@ Private or missing profiles return the same unavailable page; switching back to
 private prevents subsequent public reads. Renaming changes the shared URL.
 
 GET `/api/profiles/{username}/public` returns only public profile fields; the
-existing PATCH `/api/me/profile` remains owner-only. Album/mosaic editing belongs
-to later phases. See [Phase 3 acceptance verification](docs/phase-3-verification.md)
+existing PATCH `/api/me/profile` remains owner-only. These settings control the
+legacy public profile. See [Phase 3 acceptance verification](docs/phase-3-verification.md)
 for the criteria, coverage, and browser checklist.
 
-## Phase 4 saved albums and Featured Albums
+## Legacy Phase 4 saved albums and Featured Albums
 
-After applying migrations and restarting the API, open **Choose albums** on the
-dashboard (or `/settings/albums`). Existing users must reconnect Spotify once to
+After applying migrations and restarting the API, open `/settings/albums`.
+Existing users must reconnect Spotify once to
 grant `user-library-read`. The picker loads 20 saved albums per page, supports
 Load more, and saves up to 100 unique Featured Album IDs on the owner profile.
 Add/remove changes are drafts until **Save Featured Albums**; **Reset edits**
@@ -224,10 +286,10 @@ Removal-only saves work without Spotify. Tokens never appear in these responses.
 See [Phase 4 end-to-end testing workflow](docs/phase-4-verification.md) for setup,
 the browser checklist, failure scenarios, and the current verification record.
 
-## Phase 5 mosaic builder
+## Legacy Phase 5 mosaic builder
 
 Apply migrations (`uv run alembic upgrade head` from `backend/`) and restart the
-API. Open **Build mosaic** on the dashboard or `/builder`. Save Featured Albums
+API. Open `/builder`. Save Featured Albums
 first, then apply Heart, Star, Music note, or Blank / custom. Presets fill a 9x9
 grid, repeating covers when needed. Choose an album and click a cell to place it;
 Tab then Enter/Space also works. Erase tiles clears cells; Undo reverses up to 50
@@ -236,7 +298,8 @@ draft edits; Reset restores the last save. Leaving discards unsaved edits.
 **Save mosaic** persists the complete layout. Refresh restores its coordinates.
 **Set Active** makes the saved design available on `/@username` when the profile
 is public; it does not change profile visibility. Later saves update the active
-design. This MVP supports one mosaic per profile. Public tiles open album details
+design. The legacy editor supports one mosaic per profile, separately from the
+monthly archive. Public tiles open album details
 and Spotify links; artwork failures leave the saved shape available with retry.
 
 GET `/api/me/mosaic-presets` returns coordinate maps; GET/POST `/api/me/mosaics`

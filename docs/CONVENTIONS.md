@@ -47,6 +47,34 @@ replace the validated complete tile list in one transaction. Copy that lock orde
 for changes that touch both the selection and layout. Avoid copying the inactive
 health router as implemented infrastructure; see ARCHITECTURE's debt section.
 
+Monthly snapshots use `api/routes/monthly_mosaics.py` and
+`repositories/monthly_mosaics.py`. Bind the period and generation timestamp to one
+UTC request-start time. Return an existing profile/month record before contacting
+Spotify; fetch top tracks without holding the profile lock, then lock/recheck and
+insert atomically. Keep monthly albums independent of Featured Albums, and verify
+snapshot ownership/membership before catalog reads. The shared Spotify context
+accepts a required scope; use `TOP_SCOPE` for monthly callers. Commit successful
+refresh-token rotation before reporting a refreshed scope mismatch. Copy existing
+privacy-safe DTOs; never persist provider artwork/catalog payloads in the archive.
+Fresh generation may return transient normalized display data from top tracks;
+only include the saved layout's exact album/song pairs, and publish it after the
+snapshot commits. Use the bounded caches in `services/spotify_cache.py` rather
+than adding provider data to archive rows. Cache hits must follow current session,
+ownership, membership, and scope checks. Publish reusable access tokens only after
+the credential transaction commits; honor provider expiry and invalidate on 401.
+Monthly songs store only IDs from the original generation response. New JSONB
+tiles include optional `spotifyTrackId`; older tiles keep representative-song
+fallbacks. Detail requests with `track_id` must match a saved tile for the same
+album before any Spotify access. Cache monthly metadata by album/song pair and
+deduplicate image decoding by URL, so repeated covers cannot substitute a song.
+Verify both track provenance and album membership when resolving their details;
+older empty mappings must not be silently filled from current listening. An
+explicitly authorized regeneration replaces the listening selection and generation
+timestamp together, with a recoverable original copy and an atomic owner-scoped
+write; it must not claim the new songs came from the old snapshot. See the scoped
+monthly loader for image readiness, bounded fallbacks, and cancellation; keep
+legacy incremental album-loading behavior unchanged.
+
 ## Configuration and generated files
 
 Application settings live in `backend/app/core/config.py`. Migration settings are

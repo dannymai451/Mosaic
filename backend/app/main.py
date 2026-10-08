@@ -2,11 +2,13 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.routes.albums import router as albums_router
+from app.api.routes.artwork_remixes import router as artwork_remixes_router
 from app.api.routes.auth import (
     auth_router,
     me_router,
     spotify_router,
 )
+from app.api.routes.monthly_mosaics import router as monthly_mosaics_router
 from app.api.routes.mosaics import router as mosaics_router
 from app.api.routes.profiles import public_router
 from app.api.routes.profiles import router as profiles_router
@@ -36,6 +38,8 @@ app.include_router(profiles_router)
 app.include_router(public_router)
 app.include_router(albums_router)
 app.include_router(mosaics_router)
+app.include_router(monthly_mosaics_router)
+app.include_router(artwork_remixes_router)
 
 
 @app.get("/api/health")

@@ -10,6 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.db.session import get_db
 from app.models import Profile
 from app.repositories import profiles, sessions, spotify_connections
+from app.services import spotify_cache
 from app.services.spotify import LIBRARY_SCOPE, SpotifyClient, SpotifyError
 
 Database = Annotated[AsyncSession, Depends(get_db)]
@@ -41,17 +42,27 @@ Owner = Annotated[Profile, Depends(owner_profile)]
 
 
 @asynccontextmanager
-async def spotify_for_owner(db: AsyncSession, profile: Profile):
+async def spotify_for_owner(
+    db: AsyncSession, profile: Profile, required_scope: str = LIBRARY_SCOPE
+):
     try:
         async with httpx.AsyncClient(timeout=10.0) as http:
-            async with db.begin():
-                connection = await spotify_connections.get_for_update(
-                    db, profile.user_id
-                )
-                if connection is None or LIBRARY_SCOPE not in connection.scopes.split():
-                    raise SpotifyError(403, "spotify_reconnect_required")
-                spotify = SpotifyClient(http, db, connection)
-                await spotify.refresh()
+            async with spotify_cache.serialized_refresh(profile.user_id):
+                async with db.begin():
+                    connection = await spotify_connections.get_for_update(
+                        db, profile.user_id
+                    )
+                    if (
+                        connection is None
+                        or required_scope not in connection.scopes.split()
+                    ):
+                        raise SpotifyError(403, "spotify_reconnect_required")
+                    spotify = SpotifyClient(http, db, connection)
+                    if not spotify.use_cached_access_token():
+                        await spotify.refresh()
+                spotify.cache_access_token()
+            if required_scope not in spotify.connection.scopes.split():
+                raise SpotifyError(403, "spotify_reconnect_required")
             yield spotify
     except SpotifyError as exc:
         headers = {"Cache-Control": "no-store"}
