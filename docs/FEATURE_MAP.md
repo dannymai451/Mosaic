@@ -80,7 +80,27 @@ Tiles show cover artwork without visible title captions; accessible names/toolti
 identify each tile's resolved song. Older artwork uses its saved representative
 song, or a short missing-song explanation and album action when no song was saved.
 Failed metadata or images leave usable placeholders and retry; older snapshots show album details.
-The page explains the approximate four-week source and handles empty,
+The collection leads with the artwork and selected month, with a horizontal month
+picker when multiple months are saved. A create action appears only when the current
+month is missing; refresh remains available. Redundant shape, album-count, and
+Original badges are omitted. Snapshot provenance, privacy, and the approximate
+four-week source are available under **About your collection**.
+The primary pages share warm paper surfaces, olive controls, a tile wordmark,
+and serif display headings. Default artwork uses a dark forest background and
+an olive frame to distinguish the shape's openings from its covers.
+The studio opens from **Customize**; frame controls
+and **Download & share** use disclosures. Photo requirements and public-link
+consequences stay beside the relevant controls. Saved designs retain their colors.
+The dashboard welcomes the listener and links directly to the collection.
+The collection and dashboard provide Log out directly; account settings have
+been retired, with old settings URLs redirecting to the collection. The existing `/qa-remix` fixture provides
+synthetic saved/empty collection and studio checks without Spotify sign-in.
+For UI verification, open that fixture at desktop and 390px widths. Check empty
+collection creation, Customize and Save design, song filtering (including no
+results), and the song dialog's next/previous and Escape controls. The Forest
+default should leave the pumpkin's eyes and mouth clearly visible against its
+dark background; the toolbar must fit without horizontal page overflow.
+The page handles empty,
 loading, expired-session, reconnect, provider-error, and rate-limit states.
 
 **Tests:** `backend/tests/test_monthly_mosaics.py` exercises period parameters,
@@ -124,9 +144,10 @@ Live identity compatibility remains unverified; see architectural debt.
 
 **User purpose:** see the connected owner's name/avatar and end the current session.
 
-**Entry points:** `/dashboard`, GET `/api/me`, POST `/api/auth/logout`.
+**Entry points:** `/dashboard`, `/monthly`, GET `/api/me`, POST `/api/auth/logout`.
 
 **Implementation:** `frontend/src/app/dashboard/page.tsx`,
+`frontend/src/components/logout-button.tsx`, `frontend/src/app/monthly/page.tsx`,
 `backend/app/api/routes/auth.py`, `backend/app/repositories/sessions.py`,
 `backend/app/repositories/profiles.py`.
 
@@ -143,40 +164,28 @@ one hour and confirm the profile still loads. Click Log out and confirm landing
 page navigation and `/api/me` returns 401. Open dashboard while signed out and
 confirm reconnect/retry controls. Backend tests cover expiry without waiting.
 
-## Profile settings and saving
+## Retired account settings
 
-**User purpose:** preview username, display name, bio, visibility, and one of three
-themes, then save those edits to the owner profile.
+The account/profile settings screen has been removed from the artwork workflow.
+`/settings/profile` redirects to `/monthly`, and dashboard/collection navigation
+provides Log out instead of an Account link. The collection and its customization
+studio do not require editing a username, bio, profile theme, or visibility.
 
-**Entry points:** dashboard's Account settings link; `/settings/profile`.
+Profile records still identify artwork ownership and supply the display name on
+shared artwork. Existing data, the legacy owner profile API, and existing public
+profiles remain available. New artwork sharing is controlled per saved design.
 
-**Implementation:** `frontend/src/app/settings/profile/page.tsx` (`ProfileForm`,
-loader, validation and saved/draft/preview state),
-`frontend/src/components/profile-card.tsx`, `share-profile.tsx`.
-
-**Backend/data:** GET `/api/me` supplies the initial owner profile. This page does
-call PATCH `/api/me/profile` to persist changed fields. Preview changes only
-updates local state; Reset edits restores the last successful save. Failed saves
-keep the draft and show validation, conflict, expiry, or retry feedback. Controls
-are disabled during saving. Sharing uses the saved username and visibility.
-
-**Tests:** no frontend automated behavior tests. Backend owner read tests cover
-the source response, but not the form. Lint/typecheck/build cover compilation.
-
-**Verification:** sign in, open settings, enter a username such as `music_fan`
-(new generated usernames fit the form limit; older names may remain unchanged), change bio/theme,
-and click Preview changes. Confirm the preview changes, Reset edits restores
-last saved values, and refresh discards unsaved edits. Save changes and refresh
-to confirm persistence. Try a taken username and confirm the draft is retained.
-With a missing session verify the
-Connect Spotify prompt. Stop the API and reload to verify error/retry state.
+**Verification:** open `/settings/profile` and confirm navigation to `/monthly`.
+Check that dashboard and collection have no Account link and that Log out returns
+to the landing page. A failed logout must show an error and allow retry without
+navigating away. Check the collection header at 390px width.
 
 ## Owner profile persistence API
 
-**User purpose:** persist owner profile edits from settings.
+**User purpose:** retain the legacy owner profile update contract for API callers.
 
 **Entry point:** authenticated PATCH `/api/me/profile`; API docs at
-`http://127.0.0.1:8000/docs`; Save changes in `/settings/profile`.
+`http://127.0.0.1:8000/docs`. There is no profile editing screen.
 
 **Implementation:** `backend/app/api/routes/profiles.py`, `app/schemas/profile.py`,
 `app/repositories/profiles.py`, `app/models/profile.py` (paths relative to backend).
@@ -202,15 +211,15 @@ await fetch("http://127.0.0.1:8000/api/me/profile", {
 ```
 
 If you configured a different API URL, substitute it. Expect 200 and the new bio;
-refresh settings and confirm it loads. This intentionally changes your profile;
+read GET `/api/me` and confirm the value. This intentionally changes your profile;
 record the old bio first if you want to restore it. Signed-out PATCH should be 401.
 
 ## Read-only public profiles and sharing
 
 **User purpose:** share a saved public profile with logged-out visitors.
 
-**Entry points:** settings' View public profile / Share profile / Copy link;
-`/@username`; GET `/api/profiles/{username}/public`.
+**Entry points:** existing `/@username` links;
+GET `/api/profiles/{username}/public`. The profile settings screen is retired.
 
 **Implementation:** `backend/app/api/routes/profiles.py`,
 `frontend/src/app/[handle]/page.tsx` and `not-found.tsx`,
@@ -234,7 +243,8 @@ profiles, the public DTO, renamed URLs, visibility withdrawal, and attempts by
 visitors/other owners to write. Browser acceptance is recorded in
 [Phase 3 verification](phase-3-verification.md), including 360/390/430px layouts.
 
-**Verification:** save a public profile, copy its link, and open it signed out.
+**Verification:** use the legacy owner API to save a public profile, then open
+its `/@username` link signed out.
 Verify both `/@username` and `/%40username`. Change the saved username and confirm
 the old URL is unavailable. Save as private and reload the shared URL; no profile
 details should appear. Featured Album selection is owner-only; only the active

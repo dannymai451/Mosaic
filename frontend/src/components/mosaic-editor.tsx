@@ -192,7 +192,7 @@ export function MosaicEditor() {
       </section>
       <section className="rounded-2xl border border-zinc-800 p-5">
         <h2 className="text-xl font-semibold">Share your design</h2>
-        <p className="mt-2 text-sm leading-6 text-zinc-400">Save and set your mosaic active, then make your profile public in <Link href="/settings/profile" className="text-green-400 underline">profile settings</Link>. Later saves update the active design. Unsaved edits stay in this builder and are lost when you leave.</p>
+        <p className="mt-2 text-sm leading-6 text-zinc-400">Save and set your mosaic active to update an existing public profile. For artwork sharing, customize a design in <Link href="/monthly" className="text-green-400 underline">your collection</Link> and create its share link. Unsaved edits stay in this builder and are lost when you leave.</p>
         {profile?.visibility === "public" && saved?.is_active && <div className="mt-4"><Link href={`/@${profile.username}`} className="inline-flex min-h-11 items-center text-green-400 underline">View public profile</Link><ShareProfile username={profile.username} /></div>}
         {profile?.visibility === "private" && <p className="mt-3 text-sm text-zinc-300">Your profile is private. Setting a mosaic active keeps it private.</p>}
       </section>

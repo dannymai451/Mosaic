@@ -36,7 +36,7 @@ Copy the current API contract until a task explicitly changes it.
 Session digests belong in `repositories/sessions.py`; encrypt refresh tokens in
 the service before persistence. Owner responses must not contain Spotify tokens.
 Use explicit HTTP status errors, OAuth error redirects, and frontend status-aware
-fetch handling. The settings loading effect is the preferred abort/retry example.
+fetch handling. The monthly collection loading effect is the preferred abort/retry example.
 For Spotify integration, copy `api/routes/albums.py`, the shared owner/Spotify
 dependencies in `api/dependencies.py`, and `services/spotify.py`: normalize provider payloads, keep access tokens server-side,
 commit encrypted refresh-token rotation before subsequent reads, and return safe

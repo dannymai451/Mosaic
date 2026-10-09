@@ -1,17 +1,18 @@
-import Link from "next/link";
+import { LogoutButton } from "@/components/logout-button";
 import { MonthlyMosaics } from "@/components/monthly-mosaics";
+import { MosaicBrand } from "@/components/mosaic-brand";
 
 export default function MonthlyPage() {
   return (
-    <main className="min-h-screen bg-zinc-950 text-white">
-      <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 sm:py-12">
-        <nav aria-label="Account navigation" className="flex flex-wrap justify-between gap-4 text-sm text-zinc-300">
-          <Link href="/dashboard" className="inline-flex min-h-11 items-center underline focus-visible:outline-2 focus-visible:outline-green-400">Back to dashboard</Link>
-          <Link href="/settings/profile" className="inline-flex min-h-11 items-center underline focus-visible:outline-2 focus-visible:outline-green-400">Account settings</Link>
+    <main className="min-h-screen bg-background text-text-primary">
+      <div className="mosaic-shell pb-12">
+        <nav aria-label="Collection navigation" className="flex min-h-24 items-center justify-between gap-4 border-b border-border py-4 text-sm">
+          <MosaicBrand href="/dashboard" />
+          <LogoutButton />
         </nav>
-        <p className="mt-5 text-xs font-medium uppercase tracking-[0.25em] text-orange-200">Mosaic / Your collection</p>
-        <h1 className="mt-3 text-4xl font-medium tracking-tight sm:text-6xl">Your music. Your canvas.</h1>
-        <p className="mt-4 max-w-xl text-sm leading-7 text-zinc-400 sm:text-base">A monthly snapshot of your recent listening. Make it yours with seasonal shapes, personal backgrounds, and a frame that fits your mood.</p>
+        <div className="pt-10 sm:pt-14">
+          <h1 className="mosaic-display text-4xl sm:text-6xl">Your collection.</h1>
+        </div>
         <MonthlyMosaics />
       </div>
     </main>

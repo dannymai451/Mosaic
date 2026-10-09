@@ -10,13 +10,16 @@ and a shared rotating monthly shape. See
 stack decisions. The project-plan PDF describes the previous social/profile roadmap.
 
 Existing behavior also includes Spotify sign-in, persistent owner sessions,
-an owner dashboard, profile previews,
-profile saving, read-only public profile sharing, saved Spotify album browsing,
+an owner dashboard with logout, a legacy profile update API,
+read-only public profiles, saved Spotify album browsing,
 and persistent owner Featured Album selection, a mosaic editor with four coordinate
 presets, atomic layout saves, and public active mosaics. `services/spotify.py`
 implements token refresh/library/catalog reads; `services/mosaic.py` implements
 preset expansion and album placement validation. The legacy editor retains one
 saved mosaic per profile; monthly records are separate immutable snapshots.
+The profile settings UI is retired: `/settings/profile` redirects to `/monthly`.
+Profile records remain necessary for ownership and shared artwork display names;
+retiring the screen does not remove those records or the legacy API.
 
 - `frontend/`: Next.js 16.3.8 App Router, React 19.2.8, TypeScript with strict
   checking, Tailwind CSS 4. npm and `package-lock.json` pin the installed graph.
@@ -30,7 +33,7 @@ saved mosaic per profile; monthly records are separate immutable snapshots.
 | Location | Responsibility |
 | --- | --- |
 | `frontend/src/app/` | Route pages, root layout, global CSS; components/types are mostly colocated in pages. |
-| `frontend/src/styles/tokens.css` | Tailwind theme tokens; pages currently also use hardcoded utility colors. |
+| `frontend/src/styles/tokens.css` | Shared paper/olive interface tokens; saved artwork and legacy public profile themes retain their own palettes. |
 | `backend/app/main.py` | FastAPI creation, router registration, CORS, active health endpoint. |
 | `backend/app/api/routes/` | HTTP/authentication orchestration, owner updates, and public profile reads. |
 | `backend/app/services/` | Account/login transactions, Spotify refresh/library integration, mosaic preset expansion and validation. |
@@ -52,7 +55,7 @@ cross-language types, or implemented `infrastructure/` directory.
 
 Browser pages use HTTP endpoints with `credentials: "include"` for owner requests.
 They do not access PostgreSQL or backend Python directly. The landing page is a
-server-rendered page; connect/dashboard/settings and the monthly archive's
+server-rendered page; connect/dashboard/album settings and the monthly archive's
 interactive component run on the client.
 
 The observed backend path is:
@@ -88,15 +91,15 @@ are in [conventions](CONVENTIONS.md#hard-guardrails).
 - Async DB injection: `db/session.py::get_db`, with `Depends(get_db)` in routes.
   Startup creates an engine but does not apply migrations automatically.
 - Frontend request cancellation/retry: the loading effect in
-  `frontend/src/app/settings/profile/page.tsx` aborts on unmount and times out.
+  `frontend/src/components/monthly-mosaics.tsx` aborts on unmount and times out.
 
 ## State management
 
 Frontend state uses React `useState`/`useEffect`, with no global store or query
-library. Settings keeps separate saved, draft, and preview states; refresh/navigation
-loses unsaved changes. Saves send changed fields only and retain drafts on failure.
+library. Album settings and the studio keep separate saved/draft states;
+refresh/navigation loses unsaved changes. Failed saves retain drafts.
 Public reads use a server page and uncached API fetch, with a small client sharing
-component. The shared card/theme presets also supply the settings preview.
+component. The shared card/theme presets supply legacy public profiles.
 The builder uses the same saved/draft pattern, with up to 50 local undo snapshots,
 click/keyboard placement, and server-supplied preset coordinates. One shared CSS
 Grid canvas renders both editable and public layouts from device-independent
@@ -105,7 +108,10 @@ loads sequentially per unique ID and remains ephemeral; failure stops further re
 and exposes retry while preserving the saved layout.
 Connect reads the `error` URL query with Next's
 `useSearchParams` behind a Suspense boundary. Dashboard
-loads `/api/me`, displays errors, and POSTs logout before returning home.
+loads `/api/me` and displays errors. Dashboard and collection use a shared
+`LogoutButton` that POSTs logout with a timeout, disables duplicate submissions,
+and replaces the current route with home after success. Failed requests preserve
+the page and show retryable error feedback.
 
 Authentication state resides in PostgreSQL plus the HttpOnly `mosaic_session`
 cookie (one-hour lifetime). OAuth uses a ten-minute state cookie, validates it
@@ -210,7 +216,8 @@ only while the dialog is open. Missing saved songs retain an album action and a
 short explanation. Accessible names/tooltips identify each tile's song; metadata
 caches use album/song pairs and image decoding deduplicates common cover URLs.
 Landing/dashboard navigation focuses on the monthly flow; older
-settings/editor routes remain available directly. There is no scheduled worker,
+album settings/editor routes remain available directly; profile settings
+redirects to the collection. There is no scheduled worker,
 frontend state library, or new dependency introduced by this scope change.
 
 ### Existing library and manual designs
@@ -311,7 +318,7 @@ static type checker. No global formatting gate is installed.
   response `displayName`; frontend types are manually duplicated and partial.
 - CORS is hardcoded to a local origin and cookies are not production-secure. Keep
   deployment work explicit rather than assuming environment URLs configure CORS.
-- Global tokens and page utility colors diverge. Dashboard uses a raw image tag;
-  settings uses an unoptimized Next Image. Follow task scope before unifying them.
+- Primary pages use shared interface tokens; legacy album/editor routes still use
+  hardcoded dark utilities. Dashboard uses a raw image tag. Follow task scope before unifying them.
 - Older phase acceptance records describe past runs. Current verification and
   feature behavior are documented here and in FEATURE_MAP.
