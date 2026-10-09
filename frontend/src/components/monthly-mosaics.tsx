@@ -7,7 +7,7 @@ import { useMonthlyArtwork } from "@/components/monthly-artwork";
 import type { Album } from "@/components/album-detail";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://127.0.0.1:8000";
-const buttonClass = "inline-flex min-h-11 items-center justify-center rounded-full border border-zinc-600 px-4 py-2 text-sm font-semibold hover:border-green-400 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-green-400 disabled:opacity-50";
+const buttonClass = "mosaic-button";
 
 type MonthlyMosaic = MosaicLayout & {
   id: string;
@@ -36,17 +36,17 @@ async function request<T>(signal: AbortSignal, generate = false): Promise<T> {
     signal: AbortSignal.any([signal, AbortSignal.timeout(15000)]),
     ...(generate ? { headers: { "Content-Type": "application/json" }, body: "{}" } : {}),
   });
-  if (response.status === 401) throw new MonthlyRequestError("Your session is missing or expired. Connect Spotify to open your private collection.", true, true);
-  if (response.status === 403) throw new MonthlyRequestError("Reconnect Spotify to allow access to your recent top tracks. Your saved months are still here.", true);
+  if (response.status === 401) throw new MonthlyRequestError("Your session expired. Connect Spotify to continue.", true, true);
+  if (response.status === 403) throw new MonthlyRequestError("Reconnect Spotify to access your recent top tracks.", true);
   if (response.status === 429) {
     const wait = response.headers.get("Retry-After");
-    throw new MonthlyRequestError(`Spotify is limiting requests. ${wait ? `Wait ${wait} seconds, then try again.` : "Wait a little, then try again."} Your saved months are still here.`);
+    throw new MonthlyRequestError(`Spotify is limiting requests. ${wait ? `Wait ${wait} seconds, then try again.` : "Wait a little, then try again."}`);
   }
   if (response.status === 422) {
     const body: { detail?: string } = await response.json();
-    if (body.detail === "spotify_no_recent_listening") throw new MonthlyRequestError("Spotify has no recent top tracks for you yet. Listen to more music and try generating later. No empty artwork has been saved.");
+    if (body.detail === "spotify_no_recent_listening") throw new MonthlyRequestError("No recent Spotify tracks yet. Listen to more music, then try again.");
   }
-  if (!response.ok) throw new MonthlyRequestError("Could not load or save your artwork. Your previous months are safe; please try again.");
+  if (!response.ok) throw new MonthlyRequestError("Could not load or save your artwork. Please try again.");
   return response.json();
 }
 
@@ -58,33 +58,28 @@ function failureOf(failure: unknown): Failure {
 }
 
 function ErrorMessage({ failure }: { failure: Failure }) {
-  return <div className="mt-4"><p role="alert" className="text-sm leading-6 text-red-300">{failure.message}</p>{failure.reconnect && <a href={`${API_BASE_URL}/api/auth/spotify/start`} className={`${buttonClass} mt-3`}>Connect Spotify</a>}</div>;
+  return <div className="mt-4"><p role="alert" className="text-sm leading-6 text-red-700">{failure.message}</p>{failure.reconnect && <a href={`${API_BASE_URL}/api/auth/spotify/start`} className="mosaic-button-primary mt-3">Connect Spotify</a>}</div>;
 }
 
 function ArtworkProgress({ label, completed, total }: { label: string; completed?: number; total?: number }) {
   const determinate = completed !== undefined && total !== undefined;
   return <div className="mt-5" role="status">
-    <p className="text-sm text-zinc-300">{label}{determinate && total > 0 ? ` ${Math.floor(completed / total * 100)}%` : ""}</p>
-    {determinate ? <progress aria-label={label} max={Math.max(total, 1)} value={completed} className="mt-3 h-2 w-full accent-green-400" /> : <div role="progressbar" aria-label={label} className="mt-3 h-2 overflow-hidden rounded-full bg-zinc-800"><span className="block h-full w-1/3 rounded-full bg-green-400 motion-safe:animate-pulse" /></div>}
+    <p className="text-sm text-text-secondary">{label}{determinate && total > 0 ? ` ${Math.floor(completed / total * 100)}%` : ""}</p>
+    {determinate ? <progress aria-label={label} max={Math.max(total, 1)} value={completed} className="mt-3 h-1.5 w-full accent-accent" /> : <div role="progressbar" aria-label={label} className="mt-3 h-1.5 overflow-hidden rounded-full bg-accent-soft"><span className="block h-full w-1/3 rounded-full bg-accent motion-safe:animate-pulse" /></div>}
   </div>;
 }
 
-function SavedArtwork({ mosaic, onReady, onAuthenticationExpired }: { mosaic: MonthlyMosaic; onReady: (id: string) => void; onAuthenticationExpired: () => void }) {
+function SavedArtwork({ mosaic, showMonth, onReady, onAuthenticationExpired }: { mosaic: MonthlyMosaic; showMonth: boolean; onReady: (id: string) => void; onAuthenticationExpired: () => void }) {
   const metadata = useMonthlyArtwork(mosaic.tiles, `/api/me/monthly-mosaics/${mosaic.id}/albums`, mosaic.artwork, mosaic.artwork_expires_at);
-  const shape = { heart: "Heart", star: "Star", "music-note": "Music note", blank: "Custom", pumpkin: "Pumpkin", ghost: "Ghost", bat: "Bat", skull: "Skull" }[mosaic.preset_key];
   useEffect(() => {
     if (metadata.authenticationExpired) onAuthenticationExpired();
     else if (metadata.ready) onReady(mosaic.id);
   }, [metadata.authenticationExpired, metadata.ready, mosaic.id, onReady, onAuthenticationExpired]);
   return (
-    <section aria-labelledby="artwork-heading" className="min-w-0 rounded-2xl border border-zinc-800 bg-zinc-900 p-4 sm:p-6">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <h2 id="artwork-heading" className="text-2xl font-semibold">{monthLabel(mosaic.month)}</h2>
-        <span className="text-sm text-zinc-400">{shape} · {mosaic.album_ids.length} albums</span>
-      </div>
-      <p className="mt-3 text-sm leading-6 text-zinc-400">Saved on {new Date(mosaic.generated_at).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric", timeZone: "UTC" })} (UTC), from {mosaic.source_track_count} top tracks over roughly the preceding four weeks. This is a listening snapshot, rather than a count of every play in a calendar month.</p>
-      {metadata.ready ? <RemixStudio mosaic={mosaic} albums={metadata.albums} /> : <div className="mx-auto mt-6 flex aspect-square max-w-xl items-center justify-center rounded-xl border border-zinc-800 p-6"><div className="w-full max-w-sm"><ArtworkProgress label="Preparing song details and covers..." completed={metadata.completed} total={metadata.total} /><p className="mt-4 text-sm leading-6 text-zinc-500">Your saved artwork will appear together when its covers are ready.</p></div></div>}
-      {metadata.ready && metadata.error && <div className="mt-4"><p role="alert" className="text-sm leading-6 text-red-300">{metadata.error} Your saved shape and Spotify links are still available.</p><div className="mt-3 flex flex-wrap gap-3"><button type="button" onClick={metadata.retry} className={buttonClass}>Retry artwork</button><a href={`${API_BASE_URL}/api/auth/spotify/start`} className={buttonClass}>Reconnect Spotify</a></div></div>}
+    <section aria-label={`${monthLabel(mosaic.month)} artwork`} className="min-w-0">
+      {showMonth && <h2 className="mosaic-display text-3xl">{monthLabel(mosaic.month)}</h2>}
+      {metadata.ready ? <RemixStudio mosaic={mosaic} albums={metadata.albums} /> : <div className="mx-auto mt-6 flex aspect-square max-w-xl items-center justify-center rounded-2xl bg-accent-soft/40 p-6"><div className="w-full max-w-sm"><ArtworkProgress label="Bringing your artwork together…" completed={metadata.completed} total={metadata.total} /></div></div>}
+      {metadata.ready && metadata.error && <div className="mt-4"><p role="alert" className="text-sm leading-6 text-red-700">{metadata.error}</p><div className="mt-3 flex flex-wrap gap-3"><button type="button" onClick={metadata.retry} className={buttonClass}>Retry artwork</button><a href={`${API_BASE_URL}/api/auth/spotify/start`} className={buttonClass}>Reconnect Spotify</a></div></div>}
     </section>
   );
 }
@@ -112,14 +107,14 @@ export function MonthlyMosaics() {
     setStatus("");
     setLoading(false);
     setActionError(null);
-    setLoadError({ message: "Your session is missing or expired. Connect Spotify to open your private collection.", reconnect: true, authenticationExpired: true });
+    setLoadError({ message: "Your session expired. Connect Spotify to continue.", reconnect: true, authenticationExpired: true });
   }, []);
 
   const finishArtwork = useCallback((id: string) => {
     if (id !== pendingArtworkId) return;
     setPendingArtworkId(null);
     const mosaic = archive?.items.find((item) => item.id === id);
-    if (mosaic) setStatus(`${monthLabel(mosaic.month)} is saved in your private collection.`);
+    if (mosaic) setStatus(`${monthLabel(mosaic.month)} saved.`);
   }, [archive, pendingArtworkId]);
 
   useEffect(() => {
@@ -189,27 +184,38 @@ export function MonthlyMosaics() {
   const working = busy || !!pendingArtworkId;
   return (
     <div className="mt-8 space-y-6">
-      <section aria-labelledby="generation-heading" className="rounded-2xl border border-zinc-800 p-5 sm:p-6">
-        <h2 id="generation-heading" className="text-xl font-semibold">{monthLabel(archive.current_month)}</h2>
-        <p className="mt-2 text-sm leading-6 text-zinc-400">{currentSaved ? "This month's artwork is saved. Come back next month for a new shape and listening snapshot." : "Generate when you're ready. Your artwork saves automatically and stays as it was created, so previous months remain yours to revisit."} One artwork per month, with months changing at midnight UTC.</p>
-        <div className="mt-4 flex flex-wrap gap-3">
-          <button type="button" onClick={() => void generate()} disabled={working || loading || !!currentSaved || !!loadError} className={`${buttonClass} border-green-500 bg-green-500 text-black`}>{busy ? "Generating artwork..." : pendingArtworkId ? "Preparing artwork..." : currentSaved ? "This month is saved" : "Generate this month's artwork"}</button>
-          <button type="button" onClick={refresh} disabled={working || loading} className={buttonClass}>{loading ? "Refreshing..." : "Refresh collection"}</button>
-          {currentSaved && selectedId !== currentSaved.id && <button type="button" disabled={working} onClick={() => setSelectedId(currentSaved.id)} className={buttonClass}>View this month</button>}
+      {!currentSaved && <section aria-labelledby="generation-heading" className="rounded-2xl bg-accent-soft/60 p-5 sm:p-7">
+        <div className="flex flex-wrap items-center justify-between gap-4">
+          <div>
+            <h2 id="generation-heading" className="text-xl font-medium">Make room for {new Date(`${archive.current_month}-01T00:00:00Z`).toLocaleDateString("en-US", { month: "long", timeZone: "UTC" })}.</h2>
+            <p className="mt-2 text-sm text-text-secondary">Your recent listening, made into something to keep.</p>
+          </div>
+          <button type="button" onClick={() => void generate()} disabled={working || loading || !!loadError} className="mosaic-button-primary">{busy ? "Creating…" : pendingArtworkId ? "Preparing…" : "Create this month’s mosaic"}</button>
         </div>
-        {busy && <ArtworkProgress label="Generating and saving your listening snapshot..." />}
-        {status && <p role="status" className="mt-4 text-sm text-green-300">{status}</p>}
-        {actionError && <ErrorMessage failure={actionError} />}
-        {loadError && <ErrorMessage failure={loadError} />}
-      </section>
-      {archive.items.length ? <div className="grid gap-6 lg:grid-cols-[14rem_minmax(0,1fr)]">
-        <nav aria-label="Saved months" className="self-start rounded-2xl border border-zinc-800 p-5">
-          <h2 className="font-semibold">Your saved months</h2>
-          <ul className="mt-4 flex flex-wrap gap-3 lg:flex-col">{archive.items.map((item) => <li key={item.id}><button type="button" disabled={working} onClick={() => setSelectedId(item.id)} aria-pressed={selectedId === item.id} className={`${buttonClass} ${selectedId === item.id ? "border-green-400 text-green-300" : ""}`}>{monthLabel(item.month)}</button></li>)}</ul>
-        </nav>
-        {selected && !busy && <SavedArtwork key={selected.id} mosaic={selected} onReady={finishArtwork} onAuthenticationExpired={expireAuthentication} />}
-      </div> : !busy && <section className="rounded-2xl border border-dashed border-zinc-700 p-8 text-center"><h2 className="text-xl font-semibold">Your collection starts here</h2><p className="mt-3 text-zinc-400">Generate your first artwork above. Each saved month will appear here.</p></section>}
-      <p className="text-sm leading-6 text-zinc-500">Your collection stays private. Only designs you choose to share are accessible through their links.</p>
+      </section>}
+      {busy && <ArtworkProgress label="Creating your mosaic…" />}
+      {status && <p role="status" className="text-sm text-accent">{status}</p>}
+      {actionError && <ErrorMessage failure={actionError} />}
+      {loadError && <ErrorMessage failure={loadError} />}
+      <div className="flex items-center justify-between gap-3 border-b border-border pb-5">
+        {archive.items.length > 1 ? <nav aria-label="Saved months" className="min-w-0">
+          <ul className="flex gap-2 overflow-x-auto p-1">{archive.items.map((item) => <li key={item.id} className="shrink-0"><button type="button" disabled={working} onClick={() => setSelectedId(item.id)} aria-pressed={selectedId === item.id} className={`${buttonClass} ${selectedId === item.id ? "border-accent bg-accent-soft" : "border-transparent"}`}>{monthLabel(item.month)}</button></li>)}</ul>
+        </nav> : selected ? <h2 className="mosaic-display text-3xl">{monthLabel(selected.month)}</h2> : <span />}
+        <button type="button" onClick={refresh} disabled={working || loading} className={`${buttonClass} shrink-0`} aria-label={loading ? "Refreshing collection" : "Refresh collection"}>
+          <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6"><path d="M20 7v5h-5M4 17v-5h5" /><path d="M6.1 7a7 7 0 0 1 11.8-.9L20 9M4 15l2.1 2.9A7 7 0 0 0 17.9 17" /></svg>
+          <span className="hidden sm:inline">{loading ? "Refreshing…" : "Refresh"}</span>
+        </button>
+      </div>
+      {selected && !busy && <SavedArtwork key={selected.id} mosaic={selected} showMonth={archive.items.length > 1} onReady={finishArtwork} onAuthenticationExpired={expireAuthentication} />}
+      <details className="border-t border-border pt-2 text-sm text-text-secondary">
+        <summary className="min-h-11 cursor-pointer py-3">About your collection</summary>
+        <div className="max-w-2xl space-y-2 pb-3 leading-6">
+          <p>Your collection is private. Only designs you choose to share have a public link.</p>
+          <p>Based on your Spotify top tracks from roughly the last four weeks, rather than calendar-month play counts.</p>
+          <p>One mosaic per month, saved automatically. Customizing a design keeps your monthly artwork unchanged. New months begin at midnight UTC.</p>
+          {selected && <p>{monthLabel(selected.month)}: saved {new Date(selected.generated_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric", timeZone: "UTC" })} (UTC) · {selected.source_track_count} source tracks.</p>}
+        </div>
+      </details>
     </div>
   );
 }

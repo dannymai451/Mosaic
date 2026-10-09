@@ -37,11 +37,11 @@ export function ShareProfile({ username }: { username: string }) {
   return (
     <div className="min-w-0">
       <div className="flex flex-wrap gap-3">
-        <button type="button" onClick={() => share()} disabled={sharing} className="inline-flex min-h-11 items-center justify-center rounded-full border border-green-500 bg-green-500 px-5 py-2 text-sm font-semibold text-black hover:bg-green-400 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-green-400 disabled:opacity-60">{sharing ? "Sharing…" : "Share profile"}</button>
-        <button type="button" onClick={() => share(true)} disabled={sharing} className="inline-flex min-h-11 items-center justify-center rounded-full border border-zinc-600 px-5 py-2 text-sm font-semibold hover:border-green-400 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-green-400 disabled:opacity-60">Copy link</button>
+        <button type="button" onClick={() => share()} disabled={sharing} className="mosaic-button-primary disabled:opacity-60">{sharing ? "Sharing…" : "Share profile"}</button>
+        <button type="button" onClick={() => share(true)} disabled={sharing} className="mosaic-button bg-surface disabled:opacity-60">Copy link</button>
       </div>
-      <p role="status" className="mt-2 text-sm text-zinc-300">{status}</p>
-      {manualLink && <label className="mt-3 block text-sm text-zinc-300">Profile link<input aria-label="Profile link" readOnly value={manualLink} onFocus={(event) => event.target.select()} className="mt-2 min-h-11 w-full rounded-xl border border-zinc-700 bg-zinc-950 px-3 text-white" /></label>}
+      <p role="status" className="mt-2 text-sm">{status}</p>
+      {manualLink && <label className="mt-3 block text-sm">Profile link<input aria-label="Profile link" readOnly value={manualLink} onFocus={(event) => event.target.select()} className="mt-2 min-h-11 w-full rounded-xl border border-border bg-surface px-3 text-text-primary outline-none focus:border-accent focus:ring-2 focus:ring-accent/20" /></label>}
     </div>
   );
 }

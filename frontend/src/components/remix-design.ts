@@ -5,8 +5,8 @@ export type ShapeKey = "pumpkin" | "ghost" | "bat" | "skull";
 export type RemixStyle = { shape: ShapeKey; background_color: string; frame_style: "none" | "line" | "double" | "mat"; frame_color: string; frame_width: number; corner_radius: number; photo_dim: number; photo_x: number; photo_y: number };
 export type Remix = { id: string; name: string; month: string; style: RemixStyle; layout: MosaicLayout; background_url: string | null; share_id: string | null };
 export type ShapePreset = { key: ShapeKey; label: string; coordinates: { x: number; y: number }[]; grid_width: number; grid_height: number };
-export const defaultStyle: RemixStyle = { shape: "pumpkin", background_color: "#15131c", frame_style: "line", frame_color: "#efaa73", frame_width: 4, corner_radius: 24, photo_dim: 30, photo_x: 50, photo_y: 50 };
-export const control = "inline-flex min-h-11 items-center justify-center gap-2 rounded-full border border-white/15 px-4 text-sm font-medium transition hover:border-white/40 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-orange-300 disabled:opacity-40";
+export const defaultStyle: RemixStyle = { shape: "pumpkin", background_color: "#222720", frame_style: "line", frame_color: "#66715a", frame_width: 4, corner_radius: 24, photo_dim: 30, photo_x: 50, photo_y: 50 };
+export const control = "mosaic-button";
 
 export function imageAddress(path: string | null) { return path?.startsWith("/api/") ? `${API}${path}` : path; }
 export function uniqueSongs(tiles: MosaicTile[]) {

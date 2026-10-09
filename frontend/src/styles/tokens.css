@@ -1,9 +1,11 @@
 @theme {
-  --color-background: green;
+  --color-background: #f7f5ef;
   --color-surface: #ffffff;
-  --color-text-primary: #111111;
-  --color-text-secondary: #6b7280;
-  --color-border: #e5e7eb;
+  --color-text-primary: #252820;
+  --color-text-secondary: #666b5f;
+  --color-border: #dddcd2;
+  --color-accent: #3f5135;
+  --color-accent-soft: #e3e9d5;
 
   --radius-sm: 8px;
   --radius-md: 12px;
