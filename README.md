@@ -26,7 +26,7 @@ then download a card or share an interactive artwork link.
   or open the track in Spotify. Switch to a searchable song list, zoom into the
   artwork, or explore it full screen. Listening happens in Spotify.
 - **Customization studio.** Create up to 12 saved variations per month using
-  Pumpkin, Ghost, Bat, or Skull shapes. Choose a palette or custom colors, adjust
+  the month's enlisted shapes. Choose a palette or custom colors, adjust
   frames and corners, and add a background photo with position and darkness
   controls. Name, edit, and delete variations while keeping the source snapshot.
 - **Downloads.** Export PNG cards in square (1080 × 1080) or story (1080 × 1920)
@@ -34,16 +34,6 @@ then download a card or share an interactive artwork link.
 - **Interactive sharing.** Enable a link for an individual saved variation so
   visitors can explore its songs without signing in. Turn sharing off to revoke
   the link; other months remain private.
-
-### Also included: the original manual builder
-
-The earlier workflow remains available at `/settings/albums` and `/builder`.
-Browse saved Spotify albums, select up to 100 Featured Albums, and arrange their
-covers with Heart, Star, Music note, or Blank / custom presets. Place and erase
-tiles with mouse or keyboard, undo edits, reset drafts, save, and activate a
-mosaic for an existing public `/@username` profile. Featured Album selection
-does not change your Spotify library. This builder is separate from
-the monthly collection.
 
 ### What a monthly snapshot represents
 
