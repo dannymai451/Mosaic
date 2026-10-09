@@ -6,12 +6,13 @@ Captured from the running Mosaic frontend on 2026-10-09.
 | --- | --- | --- |
 | `mosaic-home.jpg` | `/` | Landing page with the built-in illustrative artwork |
 | `mosaic-collection.jpg` | `/monthly` | Saved October collection with real Spotify album covers |
+| `mosaic-song-popup.jpg` | `/monthly` → select a cover | Coming Home by beabadoobee with Spotify and song navigation controls |
 | `mosaic-studio.jpg` | `/monthly` → Customize | Studio preview using the same saved listening data |
 
 These JPEG files are documentation assets intended to be tracked with the README.
 The account owner authorized using their Spotify data for these screenshots.
-The collection and studio captures use the authenticated application, not the
-synthetic QA fixture. Opening and cancelling the customization draft did not
+The collection, song popup, and studio captures use the authenticated application,
+not the synthetic QA fixture. Opening and cancelling the customization draft did not
 save a variation, replace the listening snapshot, or enable a public artwork link.
 
 To refresh them, run the frontend and API with database migrations applied, open

@@ -49,6 +49,11 @@ Mosaic currently has no followers or social feed.
 
 ![October collection with a pumpkin mosaic, song view, and customization controls](docs/images/mosaic-collection.jpg)
 
+**Song details** — select a cover to see its song and artist, browse nearby songs,
+or open the track in Spotify.
+
+![Song popup showing Coming Home by beabadoobee with Spotify and song navigation controls](docs/images/mosaic-song-popup.jpg)
+
 **Customization studio** — change shapes, palettes, and backgrounds while
 previewing the artwork.
 
