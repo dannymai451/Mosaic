@@ -1,76 +1,220 @@
 # Mosaic
 
-Your music, a month in art. Generate a personal album-cover mosaic from recent
-Spotify listening and keep a private collection of saved months.
+**Your music, a month in art.**
 
-Artwork appears once its covers are ready, with progress while it loads. New
-October artwork uses a pumpkin shape. Tap a tile to preview its associated song
-and open the song on Spotify.
+Mosaic turns your recent Spotify listening into album-cover artwork. Create a
+monthly snapshot, explore the songs behind each tile, and build a private
+collection. Make it your own with custom shapes, colors, frames, and photos,
+then download a card or share an interactive artwork link.
 
-The current product scope is monthly listening snapshots, with no followers or
-feed. The existing manual builder and public profiles remain available as legacy
-features. The monthly workflow and stack decisions are documented in
-[monthly mosaics](docs/monthly-mosaics-verification.md); the project-plan PDF and
-earlier phase records describe the previous roadmap.
+![Mosaic landing page with its album-tile heart illustration](docs/images/mosaic-home.jpg)
 
-## Repository layout
+[Features](#features) · [Screenshots](#screenshots) · [Tech stack](#tech-stack) ·
+[Local setup](#local-setup) · [Development](#development) · [Troubleshooting](#troubleshooting)
 
-| Folder | Purpose |
+## Features
+
+- **Spotify sign-in.** Connect your account, return to your dashboard, and sign
+  out directly from your collection. Spotify credentials stay on the server.
+- **Monthly artwork.** Generate a snapshot from up to 50 recent top tracks.
+  Album covers fill a monthly shape, including a jack-o'-lantern for October.
+  Generation saves the snapshot automatically.
+- **Private collection.** Revisit saved months without replacing their original
+  listening selection. Loading progress, retry controls, and unavailable-cover
+  placeholders keep the collection usable when Spotify is slow or unavailable.
+- **Song explorer.** Select a cover to see its song and artist, move between songs,
+  or open the track in Spotify. Switch to a searchable song list, zoom into the
+  artwork, or explore it full screen. Listening happens in Spotify.
+- **Customization studio.** Create up to 12 saved variations per month using
+  Pumpkin, Ghost, Bat, or Skull shapes. Choose a palette or custom colors, adjust
+  frames and corners, and add a background photo with position and darkness
+  controls. Name, edit, and delete variations while keeping the source snapshot.
+- **Downloads.** Export PNG cards in square (1080 × 1080) or story (1080 × 1920)
+  format, with native device sharing where supported.
+- **Interactive sharing.** Enable a link for an individual saved variation so
+  visitors can explore its songs without signing in. Turn sharing off to revoke
+  the link; other months remain private.
+
+### Also included: the original manual builder
+
+The earlier workflow remains available at `/settings/albums` and `/builder`.
+Browse saved Spotify albums, select up to 100 Featured Albums, and arrange their
+covers with Heart, Star, Music note, or Blank / custom presets. Place and erase
+tiles with mouse or keyboard, undo edits, reset drafts, save, and activate a
+mosaic for an existing public `/@username` profile. Featured Album selection
+does not change your Spotify library. This builder is separate from
+the monthly collection.
+
+### What a monthly snapshot represents
+
+Spotify's short-term top tracks reflect approximately the preceding four weeks
+at generation time, rather than exact calendar-month play counts. Months use UTC.
+You generate the current month explicitly; there is no background scheduler or
+backfilling of missed months. Generating again returns the saved snapshot.
+Mosaic currently has no followers or social feed.
+
+## Screenshots
+
+**Monthly collection** — explore the songs behind a saved seasonal mosaic.
+
+![October collection with a pumpkin mosaic, song view, and customization controls](docs/images/mosaic-collection.jpg)
+
+**Customization studio** — change shapes, palettes, and backgrounds while
+previewing the artwork.
+
+![Mosaic customization studio with four shapes, color palettes, and photo controls](docs/images/mosaic-studio.jpg)
+
+These are captures of the running application. The collection and studio show
+real Spotify listening data, used with the account owner's permission. The landing
+page uses its built-in illustration. See [screenshot notes](docs/images/README.md)
+for capture details.
+
+## Tech stack
+
+| Area | Technologies |
 | --- | --- |
-| `frontend/` | Next.js App Router app with TypeScript and Tailwind CSS. |
-| `backend/` | FastAPI API, PostgreSQL persistence, migrations, and pytest tests. |
-| `scripts/` | Repository verification and static architecture checks. |
-| `docs/` | Architecture, feature map, conventions, and acceptance instructions. |
+| Frontend | Next.js 16 App Router, React 19, TypeScript 5 |
+| Styling | Tailwind CSS 4, CSS custom properties |
+| API | Python 3.14+, FastAPI, Pydantic settings and validation |
+| Database | PostgreSQL 18, async SQLAlchemy, asyncpg |
+| Migrations | Alembic |
+| Spotify | Web API, OAuth authorization code flow |
+| Sessions and credentials | HttpOnly session cookies, hashed session tokens, Fernet-encrypted refresh tokens |
+| Images | Browser Canvas for PNG exports; Pillow for uploaded photo normalization |
+| Tooling | npm, uv, Docker Compose, ESLint, Ruff, pytest, respx |
 
-AI coding agents start with [AGENTS.md](AGENTS.md). See
-[current architecture](docs/ARCHITECTURE.md), [feature map](docs/FEATURE_MAP.md),
-and [conventions](docs/CONVENTIONS.md) for durable project context.
+Exact dependency versions are recorded in `frontend/package-lock.json` and
+`backend/uv.lock`.
 
-## Requirements
+## Local setup
 
-- Node.js 20.9 or newer and npm.
-- Python 3.14 or newer and [uv](https://docs.astral.sh/uv/getting-started/installation/).
-- [Docker Desktop](https://docs.docker.com/desktop/) or Docker Engine with Compose.
+### 1. Prerequisites
 
-## Start the local database
+Clone or download this repository, then open a terminal in its root directory.
+Install:
 
-From the repository root, create your local environment file if you haven't already:
+- Node.js **20.9+** and npm.
+- Python **3.14+** and [uv](https://docs.astral.sh/uv/getting-started/installation/).
+- [Docker Desktop](https://docs.docker.com/desktop/) or Docker Engine with Compose,
+  with Docker running.
+- A Spotify account and a Spotify developer application for live sign-in.
+
+To try only the interface, install the frontend dependencies and run its server
+as shown in step 5, then visit [the local demo](http://127.0.0.1:3000/qa-remix).
+This preview uses in-memory fixtures, needs no API/database/Spotify credentials,
+and resets when reloaded. It does not verify live Spotify integration.
+
+### 2. Create local environment files
+
+Copy each example **only if the destination does not already exist**.
+
+**macOS / Linux / Git Bash**
 
 ```bash
 cp -n .env.example .env
+cp -n backend/.env.example backend/.env
+cp -n frontend/.env.example frontend/.env.local
 ```
 
-Docker Compose reads `.env` to configure PostgreSQL. The checked-in example uses
-development-only credentials. Keep your actual `.env` file private.
+**PowerShell**
 
-Start the database in the background:
+```powershell
+if (!(Test-Path .env)) { Copy-Item .env.example .env }
+if (!(Test-Path backend/.env)) { Copy-Item backend/.env.example backend/.env }
+if (!(Test-Path frontend/.env.local)) { Copy-Item frontend/.env.example frontend/.env.local }
+```
+
+| File | Settings |
+| --- | --- |
+| `.env` | `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_DB`, `POSTGRES_PORT` for Docker Compose |
+| `backend/.env` | `DATABASE_URL`, `SPOTIFY_CLIENT_ID`, `SPOTIFY_CLIENT_SECRET`, `SPOTIFY_REDIRECT_URI`, `FRONTEND_URL`, `TOKEN_ENCRYPTION_KEY` |
+| `frontend/.env.local` | `NEXT_PUBLIC_API_BASE_URL` (defaults to `http://127.0.0.1:8000`) |
+
+The examples include matching development-only database credentials. If you
+change the database user, password, name, or port, update `DATABASE_URL` too.
+Keep real environment files out of Git. `NEXT_PUBLIC_` values are visible in the
+browser and must never contain secrets.
+
+### 3. Configure Spotify and token encryption
+
+Create an application in the [Spotify Developer Dashboard](https://developer.spotify.com/dashboard)
+with Web API access. Register this exact redirect URI:
+
+```text
+http://127.0.0.1:8000/api/auth/spotify/callback
+```
+
+Copy the application's Client ID and Client Secret into `backend/.env`, and keep
+these local URLs:
+
+```dotenv
+SPOTIFY_REDIRECT_URI=http://127.0.0.1:8000/api/auth/spotify/callback
+FRONTEND_URL=http://127.0.0.1:3000
+```
+
+For development-mode apps, Spotify requires a Premium account for the app owner
+and an allowlisted account for each listener. Check the current
+[Spotify quota-mode requirements](https://developer.spotify.com/documentation/web-api/concepts/quota-modes)
+and add your test account in the developer dashboard. Spotify accepts explicit
+loopback IPs for local HTTP callbacks; `localhost` is not an allowed callback
+hostname. See [Spotify redirect URI requirements](https://developer.spotify.com/documentation/web-api/concepts/redirect_uri).
+
+Install the backend dependencies and generate an encryption key:
+
+```bash
+cd backend
+uv sync --locked
+uv run python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
+```
+
+Paste the output into `TOKEN_ENCRYPTION_KEY` in `backend/.env`. Generate it once
+and keep it stable across restarts so existing refresh tokens remain readable.
+Return to the repository root:
+
+```bash
+cd ..
+```
+
+Mosaic requests `user-read-private`, `user-top-read`, and `user-library-read`.
+If an existing connection lacks a scope, reconnect Spotify to grant it.
+
+### 4. Start PostgreSQL and apply migrations
+
+From the repository root:
 
 ```bash
 docker compose up -d db
-```
-
-Check whether it is ready:
-
-```bash
 docker compose ps
 docker compose exec db pg_isready -U mosaic -d mosaic
 ```
 
-The database listens on port `5432` by default. Its data is kept in the named
-`postgres_data` volume when the container is stopped or recreated. To stop the
-database while keeping its data, run:
+The readiness command assumes the example database name and user; substitute your
+values if changed. Wait for PostgreSQL to report that it is accepting connections.
+Then apply the schema:
 
 ```bash
-docker compose stop db
+cd backend
+uv run alembic upgrade head
+uv run alembic check
+cd ..
 ```
 
-Start it again with `docker compose up -d db`. To remove the container and
-network, run `docker compose down`; the named database volume remains. Removing
-the volume with `docker compose down -v` permanently deletes the local database.
+Alembic reads `backend/.env` when run from `backend/`. It requires only
+`DATABASE_URL`; the application itself also needs the Spotify settings. Exported
+environment variables take precedence over values in `.env`.
 
-## Run locally
+### 5. Run the API and frontend
 
-In a terminal, from the repository root:
+Open two terminals, starting each from the repository root.
+
+**Terminal 1 — API**
+
+```bash
+cd backend
+uv run fastapi dev
+```
+
+**Terminal 2 — frontend**
 
 ```bash
 cd frontend
@@ -78,69 +222,57 @@ npm ci
 npm run dev
 ```
 
-Open http://127.0.0.1:3000. Use `127.0.0.1` consistently for the frontend,
-API, and Spotify callback: current CORS allows that frontend origin only.
+Open [Mosaic](http://127.0.0.1:3000), choose **Connect Spotify**, and approve the
+requested access. From the dashboard, open your collection and create the current
+month's artwork. Use **Customize** to save a variation, then **Download & share**
+to export it or enable a link.
 
-In a second terminal, from the repository root:
+Use **`127.0.0.1` consistently** for the browser, API URL, and OAuth callback.
+The API's current CORS configuration permits `http://127.0.0.1:3000` only.
 
-```bash
-cd backend
-uv sync --locked
-uv run fastapi dev
-```
+| Local endpoint | Purpose |
+| --- | --- |
+| [App](http://127.0.0.1:3000) | Landing page and Spotify connection |
+| [Collection](http://127.0.0.1:3000/monthly) | Monthly artwork, song explorer, customization, and sharing |
+| [API docs](http://127.0.0.1:8000/docs) | Interactive OpenAPI documentation |
+| [Health](http://127.0.0.1:8000/api/health) | API process check; does not test database or Spotify connectivity |
+| [Demo preview](http://127.0.0.1:3000/qa-remix) | Synthetic collection and studio without sign-in |
 
-The API runs at http://127.0.0.1:8000. Interactive API documentation is at
-http://127.0.0.1:8000/docs, and the health endpoint is `/api/health`.
-Copy `backend/.env.example` to `backend/.env` and configure its settings first;
-the API loads them at import. Apply migrations before using authenticated routes.
+## Development
 
-## Run checks
+### Run checks
 
-After installing both dependency sets, from the repository root with Docker running:
+After installing both dependency sets, run from the repository root with Docker
+running:
 
 ```bash
 uv run --project backend --locked python scripts/verify.py
 ```
 
-This is the standard completion check: architecture guardrails, backend Ruff,
-frontend lint/type checking/build, and the entire backend suite with disposable
-PostgreSQL 18. It stops on failures and rejects skipped backend tests. It does not
-use your development database. See [verification details](docs/CONVENTIONS.md#verification).
+This runs architecture guardrails, Ruff, frontend lint/type checking/production
+build, and the backend suite against disposable PostgreSQL 18. It rejects skipped
+backend tests and does not use your development database. Spotify calls in the
+suite are mocked; live OAuth and catalog behavior require a configured developer
+app and manual acceptance checks.
 
-For targeted checks while developing:
+For focused checks:
 
-From `frontend/`:
+| Working directory | Command | Purpose |
+| --- | --- | --- |
+| `frontend/` | `npm run lint` | ESLint |
+| `frontend/` | `npm run typecheck` | Next route types and TypeScript |
+| `frontend/` | `npm run build` | Production build |
+| `backend/` | `uv run ruff check .` | Python lint |
+| `backend/` | `uv run pytest -ra` | Backend tests; database tests skip without `TEST_DATABASE_URL` |
+| `backend/` | `uv run python -m app.db.check` | Development database connectivity |
 
-```bash
-npm run lint
-npm run typecheck
-npm run build
-```
+Direct pytest is not a substitute for the full verifier. See
+[verification details](docs/CONVENTIONS.md#verification).
 
-From `backend/`:
+### Database maintenance
 
-```bash
-uv run pytest
-uv run ruff check .
-```
-
-## Database migrations
-
-Alembic manages the PostgreSQL schema for `users`, `spotify_connections`,
-`sessions`, `profiles`, `mosaics`, and `monthly_mosaics`. Start the local database,
-then from `backend/`:
-
-```bash
-cp -n .env.example .env
-uv sync --locked
-uv run alembic upgrade head
-```
-
-Set `DATABASE_URL` in `backend/.env` to a `postgresql+asyncpg://` URL matching
-your database credentials and port. An exported `DATABASE_URL` takes precedence.
-Alembic loads this file automatically and does not require Spotify credentials.
-
-After changing models, generate and review a migration before applying it:
+After pulling changes, run `uv run alembic upgrade head` from `backend/`.
+When changing database models, generate and review a migration:
 
 ```bash
 uv run alembic revision --autogenerate -m "describe schema change"
@@ -148,210 +280,62 @@ uv run alembic upgrade head
 uv run alembic check
 ```
 
-`alembic check` verifies that the database schema matches the models. To preview
-upgrade SQL without connecting, run `uv run alembic upgrade head --sql`.
-To roll back the most recent migration, run `uv run alembic downgrade -1`;
-rolling back the initial migration drops all four tables and their data.
+An optional local fixture is available with `uv run python -m app.db.seed --local`
+from `backend/`. It creates an idempotent test profile, but no Spotify connection
+or login session.
 
-## Monthly listening artwork and archive
+From the repository root, `docker compose stop db` stops the database while
+preserving data; `docker compose up -d db` starts it again. `docker compose down`
+removes the container and network while retaining the named volume.
+**`docker compose down -v` permanently deletes the local database.**
 
-Apply migrations and restart the API. Reconnect Spotify once to grant
-`user-top-read`, then open **Monthly artwork** on the dashboard or `/monthly`.
-Generate the current month's mosaic; it is saved automatically in your private
-archive. A loading bar stays visible until cover preparation finishes. Tap a tile
-to preview its saved song, then open it in Spotify.
-Tiles show only cover artwork. The compact popup leads with the song title and
-artist and an Open song in Spotify link. A successful song lookup supplies its
-album cover too, avoiding a separate album request. Older artwork without saved
-songs, and unavailable-song fallbacks, still provide an album action.
-A plain X closes it; release dates and track counts are omitted. New artwork
-assigns songs per tile, so repeated covers can show different songs from the same
-album. Previously saved artwork retains its representative song per album.
-You can select earlier saved months to revisit them.
+### Repository guide
 
-Artwork uses up to 50 short-term top tracks, grouped by album. This represents
-approximately the last four weeks when generated, not exact calendar-month play
-counts. Everyone uses the same rotating preset for a given month, with a Pumpkin
-for October artwork. The 12x12 jack-o'-lantern has a bent stem, symmetric body,
-triangular eye openings, and a toothy grin, with tighter spacing between covers.
-A one-time migration corrects October 2026 hearts saved
-before the pumpkin feature, preserving their listening selection and saved date.
-A follow-up migration refines existing 9x9 October 2026 pumpkins, repeating their
-original saved tiles while preserving every album/song pair and saved date.
-Other saved months remain unchanged. Months use UTC;
-one snapshot is saved per account/month, and repeat generation returns that
-snapshot rather than replacing it. Historical months cannot be generated later.
-There is no automatic background generation.
+| Path | Contents |
+| --- | --- |
+| `frontend/src/app/` | Next.js pages and routes |
+| `frontend/src/components/` | Collection, explorer, studio, sharing, and builder components |
+| `backend/app/` | FastAPI routes, services, repositories, models, and schemas |
+| `backend/migrations/` | Alembic database migrations |
+| `backend/tests/` | API, persistence, migration, and guardrail tests |
+| `scripts/` | Full verification and boundary checks |
+| `docs/` | Feature reference, conventions, and acceptance checklists |
+| `docs/images/` | README screenshots and capture notes |
 
-GET `/api/me/monthly-mosaics` returns the current month and the owner's archive;
-POST to the same endpoint with `{}` generates or returns the current snapshot.
-Fresh generation includes transient song/cover metadata from that same Spotify
-top-tracks response. Normal generation and initial display use two Spotify
-requests with a cold access token, or one with a valid cached token, plus browser
-image downloads. Valid access tokens are reused server-side; verified song
-metadata is cached for five minutes. Reopening warm artwork makes no Spotify
-API requests. Caches are bounded and clear on API restart; saved IDs/layouts stay
-in PostgreSQL. Expired/missing metadata is resolved using those saved song IDs.
-GET `/api/me/monthly-mosaics/{id}/albums/{album_id}` resolves only albums used in
-that owner's snapshot, including verified song details when available.
-An optional `track_id` query selects a song saved on a tile for that exact album.
-Album IDs, tile song IDs, representative song IDs, and layouts are persisted; catalog metadata and
-artwork remain transient, and Spotify tokens stay server-side. Archive layouts
-remain readable during provider failures. Making a legacy profile public does
-not expose monthly artwork.
+For implementation work, start with [AGENTS.md](AGENTS.md), the
+[feature map](docs/FEATURE_MAP.md), and [conventions](docs/CONVENTIONS.md).
+Frontend contributors should also read [frontend/AGENTS.md](frontend/AGENTS.md).
 
-See [monthly acceptance verification](docs/monthly-mosaics-verification.md) for
-design decisions, test coverage, browser checks, and live-provider limitations.
+## Privacy and sharing
 
-## Phase 2 persistence and local fixture
+Monthly snapshots are private by default. A saved variation becomes public only
+when you enable its artwork link. Anyone with that link can see the shared design,
+your display name, uploaded background photo, and associated songs. Editing a
+shared variation updates the same link; turning sharing off invalidates it.
+Revoking a link cannot recall images someone has already downloaded.
 
-The database enforces unique `users.spotify_account_id` and `profiles.username`
-values with named constraints. Usernames use PostgreSQL's case-sensitive string
-comparison. The new migration names the constraints already created by the
-initial migration; it preserves existing data.
+Spotify access tokens stay in server memory; refresh tokens are encrypted in
+PostgreSQL. Sessions use HttpOnly cookies and store token digests in the database.
+Snapshots store Spotify IDs and layout information; Spotify catalog metadata and
+cover art are fetched as needed. Uploaded background photos are normalized,
+stripped of metadata, and stored separately from Spotify cover art in PostgreSQL.
 
-Repository functions in `backend/app/repositories/` accept an `AsyncSession`.
-They flush writes without committing. Callers wrap related changes in
-`async with db.begin()` so failures roll back the entire operation.
-`create_user_with_profile` in `app.services.accounts` owns that transaction and
-requires a fresh session with no active transaction. Session repositories store
-SHA-256 token digests and reject expired sessions; Spotify connection repositories
-accept already-encrypted refresh tokens.
+## Troubleshooting
 
-After migrating, seed the local development fixture from `backend/`:
+| Symptom | Check |
+| --- | --- |
+| API fails during startup | Run from `backend/`; fill in `backend/.env` before starting the API. |
+| Database connection fails | Confirm Docker is running, `docker compose ps` shows a healthy database, and `DATABASE_URL` matches the root `.env`. |
+| Database tables are missing | Run `uv run alembic upgrade head` from `backend/`. |
+| Spotify rejects the callback | Match the registered redirect URI exactly, including host, port, and path. |
+| Spotify returns access errors | Check developer-app eligibility, the listener allowlist, and granted scopes; reconnect if needed. |
+| Login loops or browser requests fail | Use `127.0.0.1:3000`, not `localhost:3000`, and verify `NEXT_PUBLIC_API_BASE_URL`. |
+| Session expires | Sign in again; sessions currently last one hour. |
+| No artwork can be generated | The account needs usable recent top tracks. Empty listening data does not create a snapshot. |
+| Artwork is incomplete or rate-limited | Use the displayed retry controls and wait for any indicated cooldown. Saved layouts remain intact. |
+| A photo cannot be saved | Use JPEG, PNG, or WebP up to 8 MB and 20 megapixels. |
+| PNG export fails | Wait for covers to load, then retry. Image availability and cross-origin image access can affect exports. |
 
-```bash
-uv run python -m app.db.seed --local
-```
-
-This creates the private profile `mosaic_local_test` (`Local Test User`) linked to
-Spotify account ID `mosaic-local-test-user`. Repeating the command preserves
-profile edits and creates no duplicate rows. It targets your configured
-`DATABASE_URL`; use your local development database. It does not create a Spotify
-connection or a login session. OAuth callbacks atomically upsert the user and Spotify connection, create a
-profile on first login, and persist a hashed session. Refresh tokens are encrypted
-with `TOKEN_ENCRYPTION_KEY`; `/api/me` and logout use PostgreSQL. Sessions survive
-backend restarts until their one-hour expiry. Repeat login preserves profile edits.
-
-Validate the migration and run the tests from `backend/`:
-
-```bash
-uv run alembic upgrade head
-uv run alembic check
-uv run python scripts/verify_phase2.py
-```
-
-The verification script starts a disposable PostgreSQL 18 container, creates a
-blank test database, applies Alembic migrations, runs all tests, and cleans up.
-It requires Docker and does not use your development database. Direct `pytest`
-runs require `TEST_DATABASE_URL` with a role allowed to create databases; otherwise
-database-dependent tests are skipped. They verify identity uniqueness,
-atomic rollback, profile updates, connection upserts, session hashing/expiry/logout,
-and seed idempotency. The existing health and OAuth tests also run. See
-[Phase 2 acceptance verification](docs/phase-2-verification.md) for setup and the
-manual browser checklist.
-
-## Legacy Phase 3 profile editing and sharing
-
-Open `/settings/profile` while signed in to preview and save username, display
-name, bio, visibility, and theme. Save as public to enable View public profile,
-Share profile, and Copy link. Shared URLs use `/@username` and work signed out.
-Private or missing profiles return the same unavailable page; switching back to
-private prevents subsequent public reads. Renaming changes the shared URL.
-
-GET `/api/profiles/{username}/public` returns only public profile fields; the
-existing PATCH `/api/me/profile` remains owner-only. These settings control the
-legacy public profile. See [Phase 3 acceptance verification](docs/phase-3-verification.md)
-for the criteria, coverage, and browser checklist.
-
-## Legacy Phase 4 saved albums and Featured Albums
-
-After applying migrations and restarting the API, open `/settings/albums`.
-Existing users must reconnect Spotify once to
-grant `user-library-read`. The picker loads 20 saved albums per page, supports
-Load more, and saves up to 100 unique Featured Album IDs on the owner profile.
-Add/remove changes are drafts until **Save Featured Albums**; **Reset edits**
-restores the last save. Album details include an Open in Spotify link.
-
-Only IDs are persisted; album metadata and artwork come from Spotify. Selections
-outside the loaded library pages remain removable and their details load on demand.
-This is the owner's working set for the mosaic builder. Removing a saved selection
-also removes that album's mosaic tiles. Selection does not change your Spotify library.
-
-GET `/api/me/albums` refreshes Spotify access server-side and normalizes album data.
-GET/PUT `/api/me/featured-albums` reads/replaces the owner's selection; PUT accepts
-`{"album_ids": [...]}` and validates newly added albums against the saved library.
-Removal-only saves work without Spotify. Tokens never appear in these responses.
-
-See [Phase 4 end-to-end testing workflow](docs/phase-4-verification.md) for setup,
-the browser checklist, failure scenarios, and the current verification record.
-
-## Legacy Phase 5 mosaic builder
-
-Apply migrations (`uv run alembic upgrade head` from `backend/`) and restart the
-API. Open `/builder`. Save Featured Albums
-first, then apply Heart, Star, Music note, or Blank / custom. Presets fill a 9x9
-grid, repeating covers when needed. Choose an album and click a cell to place it;
-Tab then Enter/Space also works. Erase tiles clears cells; Undo reverses up to 50
-draft edits; Reset restores the last save. Leaving discards unsaved edits.
-
-**Save mosaic** persists the complete layout. Refresh restores its coordinates.
-**Set Active** makes the saved design available on `/@username` when the profile
-is public; it does not change profile visibility. Later saves update the active
-design. The legacy editor supports one mosaic per profile, separately from the
-monthly archive. Public tiles open album details
-and Spotify links; artwork failures leave the saved shape available with retry.
-
-GET `/api/me/mosaic-presets` returns coordinate maps; GET/POST `/api/me/mosaics`
-reads/creates the design; PUT `/api/me/mosaics/{id}` replaces the entire layout;
-POST `/api/me/mosaics/{id}/activate` activates it. Saves allow up to 100 tiles,
-grids of 1-12 cells per dimension, unique in-bounds coordinates, and only the
-owner's Featured Album IDs. PostgreSQL stores IDs and coordinates, not artwork
-or catalog metadata. Public profile responses include only the active layout;
-GET `/api/profiles/{username}/albums/{album_id}` resolves details only for an
-album used in that public active design. Spotify credentials remain server-side.
-
-See [Phase 5 acceptance verification](docs/phase-5-verification.md) for the test
-record, browser workflow, and remaining live Spotify acceptance.
-
-## Shared setup files
-
-- `.editorconfig` gives supporting editors consistent whitespace settings:
-  two spaces by default, four for Python, UTF-8, and a final newline.
-  Editors without built-in support may need an EditorConfig extension.
-- `.gitignore` keeps dependencies, generated files, caches, and local environment
-  values out of Git. It does not remove files already tracked by Git.
-- `.env.example` files document configuration names and safe example values.
-  Commit examples; keep actual `.env` and `.env.local` files local.
-- This README explains how to install dependencies, run the apps, and run checks.
-
-## Environment variables
-
-Compose reads the root `.env` file to configure the local PostgreSQL container.
-Copy the checked-in example to create it. For application configuration, copy the
-appropriate example:
-
-```bash
-cp -n .env.example .env
-cp -n frontend/.env.example frontend/.env.local
-cp -n backend/.env.example backend/.env
-```
-
-Next.js loads `frontend/.env.local` automatically. Values prefixed with
-`NEXT_PUBLIC_` are exposed to the browser, so use them only for public settings.
-For backend commands that need local values, use:
-
-```bash
-cd backend
-uv run --env-file .env fastapi dev
-```
-
-The backend reads its settings from environment variables or `backend/.env`.
-Its database engine and Alembic use `DATABASE_URL`; Spotify authentication also
-requires the Spotify and frontend settings in the backend example.
-
-## Commit hooks
-
-No commit hooks are enabled. Hooks are scripts Git runs automatically, such as
-running lint before allowing a commit. For now, run the checks above manually
-before committing. Hooks can be added later when the checks and workflow are settled.
+The checked-in server configuration targets local development. Production hosting
+still needs deployment-specific CORS, HTTPS/secure-cookie configuration, and
+operational setup; changing environment URLs alone does not provide those.
